@@ -420,6 +420,9 @@ function removeHighlightLoading() {
   _highlightSpan  = null;
   _highlightRange = null;
 }
+
+/* ============================================================
+   STREAMING TEXT UTILITY
    Reveals text word-by-word into an element.
    Returns a cancel function.
    ============================================================ */
