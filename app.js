@@ -143,12 +143,12 @@ function loadSavedQuotes() {
    2. GEMINI API
    ============================================================ */
 
-async function callGemini(prompt, systemInstruction = null) {
+async function callGemini(prompt, systemInstruction = null, maxTokens = 2048) {
   const endpoint = `${APP_CONFIG.gemini_api_endpoint}?key=${STATE.apiKey}`;
 
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { maxOutputTokens: 2048, temperature: 0.7 }
+    generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 }
   };
 
   if (systemInstruction) {
@@ -989,12 +989,32 @@ function displayInlineSuggestion(originalText, aiResponse, skills) {
     </div>
   `;
 
-  // Position near the selection
-  const area = $('writing-area');
-  const areaRect = area?.getBoundingClientRect();
-  if (areaRect) {
-    card.style.top  = `${areaRect.bottom + window.scrollY + 8}px`;
-    card.style.left = `${Math.min(areaRect.left + window.scrollX + 16, window.innerWidth - 360)}px`;
+  // Position within viewport — fixed coords, no scrollY offset
+  const sel = STATE.currentSelection?.range;
+  if (sel) {
+    const rect = sel.getBoundingClientRect();
+    const cardWidth  = 360;
+    const cardHeight = 300; // estimated max height
+    const padding    = 12;
+
+    // Prefer below selection, flip above if not enough room
+    let top  = rect.bottom + padding;
+    let left = rect.left + (rect.width / 2) - (cardWidth / 2);
+
+    if (top + cardHeight > window.innerHeight - padding) {
+      top = Math.max(padding, rect.top - cardHeight - padding);
+    }
+
+    left = Math.max(padding, Math.min(left, window.innerWidth - cardWidth - padding));
+
+    card.style.top  = `${top}px`;
+    card.style.left = `${left}px`;
+  } else {
+    // Fallback: bottom-right corner
+    card.style.bottom = '80px';
+    card.style.right  = '24px';
+    card.style.top    = 'auto';
+    card.style.left   = 'auto';
   }
 
   card.querySelector('.accept-btn')?.addEventListener('click', () => {
@@ -1240,7 +1260,7 @@ ${exemplarText}
 STUDENT RESPONSE:
 ${essay}
 
-Return your marking as a JSON object with this EXACT structure:
+Return your marking as a JSON object with this EXACT structure — use double quotes only, no newlines inside string values, no trailing commas:
 {
   "total_score": <number>,
   "total_max": <number>,
@@ -1251,26 +1271,106 @@ Return your marking as a JSON object with this EXACT structure:
       "score": <number>,
       "max": <number>,
       "descriptor": "<descriptor label>",
-      "comment": "<specific comment with evidence from student response>",
-      "evidence": "<direct quote from student response that justifies the mark>"
+      "comment": "<specific comment — no line breaks — max 200 chars>",
+      "evidence": "<direct quote from student — max 100 chars>"
     }
   ],
-  "examiner_comment": "<overall chief examiner comment — direct, professional, honest>",
-  "key_improvement": "<the single most important thing this student must do to improve their mark>"
+  "examiner_comment": "<overall comment — no line breaks — max 300 chars>",
+  "key_improvement": "<single most important improvement — no line breaks — max 150 chars>"
 }
 
-Return ONLY valid JSON. No preamble, no markdown fences.`;
+Return ONLY the JSON object. No preamble, no explanation, no markdown fences.`;
 
   try {
-    const raw = await callGemini(prompt);
-    const clean = raw.replace(/```json|```/g, '').trim();
-    const data  = JSON.parse(clean);
+    const raw = await callGemini(prompt, null, 4096);
+    const data = parseMarkingJSON(raw);
     renderMarkingResults(data);
   } catch (err) {
     if (generating) {
       generating.innerHTML = `<span style="color:var(--danger)">Marking failed: ${err.message}. Please try again.</span>`;
     }
   }
+}
+
+function parseMarkingJSON(raw) {
+  // Step 1: strip markdown fences
+  let text = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+  // Step 2: extract just the JSON object — find first { and last }
+  const start = text.indexOf('{');
+  const end   = text.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('No JSON object found in response.');
+  text = text.slice(start, end + 1);
+
+  // Step 3: attempt direct parse
+  try {
+    return JSON.parse(text);
+  } catch (e1) {
+    // Step 4: aggressive cleaning — fix common Gemini JSON breakage
+
+    // Remove control characters except \n and \t
+    text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+    // Fix unescaped newlines inside string values
+    // Replace literal newlines inside quoted strings with \n
+    text = text.replace(/"((?:[^"\\]|\\.)*)"/g, (match, inner) => {
+      const fixed = inner
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r')
+        .replace(/\t/g, '\\t');
+      return `"${fixed}"`;
+    });
+
+    try {
+      return JSON.parse(text);
+    } catch (e2) {
+      // Step 5: last resort — manually reconstruct from what we can extract
+      return extractMarkingDataManually(raw);
+    }
+  }
+}
+
+function extractMarkingDataManually(raw) {
+  // If JSON is totally broken, pull out what we can with regex
+  // and build a valid object so the user at least sees something
+  const totalMatch      = raw.match(/"total_score"\s*:\s*(\d+)/);
+  const maxMatch        = raw.match(/"total_max"\s*:\s*(\d+)/);
+  const descriptorMatch = raw.match(/"descriptor_level"\s*:\s*"([^"]+)"/);
+  const examinerMatch   = raw.match(/"examiner_comment"\s*:\s*"([\s\S]*?)(?:"|,\s*"key_improvement)/);
+  const improvementMatch= raw.match(/"key_improvement"\s*:\s*"([^"]+)"/);
+
+  // Try to extract criteria array as raw text blocks
+  const criteriaBlocks = [];
+  const criteriaSection = raw.match(/"criteria"\s*:\s*\[([\s\S]*?)\]\s*[,}]/);
+  if (criteriaSection) {
+    const nameMatches = [...criteriaSection[1].matchAll(/"name"\s*:\s*"([^"]+)"/g)];
+    const scoreMatches= [...criteriaSection[1].matchAll(/"score"\s*:\s*(\d+)/g)];
+    const maxMatches  = [...criteriaSection[1].matchAll(/"max"\s*:\s*(\d+)/g)];
+    const descMatches = [...criteriaSection[1].matchAll(/"descriptor"\s*:\s*"([^"]+)"/g)];
+    const commentMatches = [...criteriaSection[1].matchAll(/"comment"\s*:\s*"([\s\S]*?)(?:"|,"evidence")/g)];
+
+    nameMatches.forEach((nm, i) => {
+      criteriaBlocks.push({
+        name:       nm[1],
+        score:      parseInt(scoreMatches[i]?.[1] || '0'),
+        max:        parseInt(maxMatches[i]?.[1]  || '6'),
+        descriptor: descMatches[i]?.[1]    || '',
+        comment:    commentMatches[i]?.[1]?.replace(/\\n/g, ' ') || 'See examiner comment below.',
+        evidence:   ''
+      });
+    });
+  }
+
+  const maxTotal = STATE.course === 'literature' ? 30 : 40;
+
+  return {
+    total_score:      parseInt(totalMatch?.[1] || '0'),
+    total_max:        parseInt(maxMatch?.[1]   || String(maxTotal)),
+    descriptor_level: descriptorMatch?.[1]     || 'Unable to determine',
+    criteria:         criteriaBlocks.length ? criteriaBlocks : [],
+    examiner_comment: examinerMatch?.[1]?.replace(/\\n/g, ' ') || raw.slice(0, 600).replace(/[{}[\]"]/g, '') + '...',
+    key_improvement:  improvementMatch?.[1] || 'Please re-run marking for detailed feedback.'
+  };
 }
 
 function buildLiteratureMarkingKeyText() {
