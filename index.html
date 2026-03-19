@@ -136,16 +136,20 @@
         <div class="session-history-section" id="session-history-section" style="display:none">
           <div class="session-history-header">
             <h3 class="session-history-title">Recent Sessions</h3>
-            <button class="btn btn-ghost btn-xs" id="clear-history-btn" type="button">Clear history</button>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn btn-ghost btn-xs" id="week-summary-btn" type="button">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Week summary
+              </button>
+              <button class="btn btn-ghost btn-xs" id="clear-history-btn" type="button">Clear history</button>
+            </div>
           </div>
           <!-- Mark trajectory mini-chart -->
           <div class="mark-trajectory-wrap" id="mark-trajectory-wrap" style="display:none">
             <p class="trajectory-label">Mark trend</p>
             <canvas id="mark-trajectory-chart" height="60"></canvas>
           </div>
-          <div class="session-history-list" id="session-history-list">
-            <!-- populated by JS -->
-          </div>
+          <div class="session-history-list" id="session-history-list"></div>
         </div>
 
       </div>
@@ -281,6 +285,21 @@
           </div>
         </div>
 
+        <!-- Custom question input -->
+        <div class="custom-question-wrap" id="custom-question-wrap">
+          <div class="custom-question-header">
+            <button class="custom-question-toggle-btn" id="custom-question-toggle" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Use my own question instead
+            </button>
+          </div>
+          <div class="custom-question-body" id="custom-question-body" style="display:none">
+            <label class="field-label" for="custom-question-input">Your question</label>
+            <textarea id="custom-question-input" class="field-textarea custom-question-textarea" rows="3" placeholder="Paste or type your question here — e.g. from a past paper, teacher worksheet, or your own study plan..."></textarea>
+            <button class="btn btn-primary btn-sm" id="custom-question-use-btn" type="button">Use this question →</button>
+          </div>
+        </div>
+
       </div>
     </div>
     <!-- /screen-mode -->
@@ -343,6 +362,13 @@
           </div>
         </div>
         <div class="topbar-right">
+          <button class="btn btn-ghost btn-sm" id="intro-check-btn" style="display:none" title="Check your introduction quality" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Check intro
+          </button>
+          <button class="btn btn-ghost btn-sm topbar-icon-btn" id="shortcuts-btn" title="Keyboard shortcuts" type="button" aria-label="Keyboard shortcuts">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+          </button>
           <button class="btn btn-ghost btn-sm" id="end-session-btn" type="button">
             End Session
           </button>
@@ -406,6 +432,12 @@
             aria-multiline="true"
             aria-label="Writing area"
           ></div>
+        </div>
+
+        <!-- Sentence variety indicator bar -->
+        <div class="sentence-variety-bar" id="sentence-variety-bar" style="display:none" aria-live="polite">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span id="sentence-variety-text"></span>
         </div>
 
         <!-- AI Review Suggestions Tray (Free Writing) -->
@@ -631,6 +663,17 @@
               <button class="confidence-btn" data-confidence="low" type="button">Low</button>
               <button class="confidence-btn" data-confidence="medium" type="button">Medium</button>
               <button class="confidence-btn active" data-confidence="high" type="button">High</button>
+            </div>
+          </div>
+
+          <!-- Examiner voice mode toggle -->
+          <div class="examiner-mode-row">
+            <button class="examiner-mode-toggle" id="examiner-mode-toggle" type="button" aria-pressed="false">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </button>
+            <div class="toggle-label-wrap">
+              <span class="toggle-label">Examiner voice</span>
+              <span class="toggle-hint">Blunt marking register — no encouragement</span>
             </div>
           </div>
 
@@ -1080,6 +1123,88 @@
   <div class="toast" id="toast" role="alert" aria-live="assertive" aria-hidden="true">
     <svg class="icon toast-icon" id="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"></svg>
     <span class="toast-text" id="toast-text"></span>
+  </div>
+
+
+  <!-- ============================================================
+       ONBOARDING WALKTHROUGH (Feature 56)
+  ============================================================ -->
+  <div class="onboarding-overlay" id="onboarding-overlay" aria-hidden="true" role="dialog" aria-label="Welcome to ScriptSense">
+    <div class="onboarding-spotlight" id="onboarding-spotlight" aria-hidden="true"></div>
+    <div class="onboarding-card" id="onboarding-card">
+      <div class="onboarding-progress">
+        <div class="onboarding-progress-bar" id="onboarding-progress-bar"></div>
+      </div>
+      <div class="onboarding-step-count" id="onboarding-step-count">1 / 5</div>
+      <div class="onboarding-icon" id="onboarding-icon" aria-hidden="true"></div>
+      <h2 class="onboarding-title" id="onboarding-title"></h2>
+      <p class="onboarding-body" id="onboarding-body"></p>
+      <div class="onboarding-actions">
+        <button class="btn btn-ghost btn-sm" id="onboarding-skip" type="button">Skip tour</button>
+        <button class="btn btn-primary" id="onboarding-next" type="button">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       KEYBOARD SHORTCUTS MODAL (Feature 58)
+  ============================================================ -->
+  <div class="modal-overlay" id="modal-shortcuts" aria-modal="true" role="dialog" aria-labelledby="shortcuts-title" aria-hidden="true">
+    <div class="modal modal--sm shortcuts-modal">
+      <div class="shortcuts-modal-header">
+        <h2 class="modal-title" id="shortcuts-title">Keyboard Shortcuts</h2>
+        <button class="shortcuts-close" id="shortcuts-close" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="shortcuts-list">
+        <div class="shortcut-row">
+          <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>S</kbd></span>
+          <span class="shortcut-desc">Save draft</span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd></span>
+          <span class="shortcut-desc">Get AI help on selected text</span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>T</kbd></span>
+          <span class="shortcut-desc">Toggle terminology bank</span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-keys"><kbd>Esc</kbd></span>
+          <span class="shortcut-desc">Close any open panel or modal</span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-keys"><kbd>Double-click</kbd></span>
+          <span class="shortcut-desc">Synonym suggestions on a word</span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-keys"><kbd>?</kbd> button</span>
+          <span class="shortcut-desc">This shortcuts reference</span>
+        </div>
+      </div>
+      <div class="shortcuts-tip">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        On Mac, use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       WEEK SUMMARY MODAL (Feature 54)
+  ============================================================ -->
+  <div class="modal-overlay" id="modal-week-summary" aria-modal="true" role="dialog" aria-labelledby="week-summary-title" aria-hidden="true">
+    <div class="modal week-summary-modal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="week-summary-title">Weekly Progress Summary</h2>
+        <button class="shortcuts-close" id="week-summary-close" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="week-summary-generating" id="week-summary-generating">
+        <div class="generating-spinner" aria-hidden="true"></div>
+        <span>Analysing your recent sessions...</span>
+      </div>
+      <div class="week-summary-content" id="week-summary-content" style="display:none">
+        <div class="week-summary-text" id="week-summary-text"></div>
+      </div>
+    </div>
   </div>
 
 
