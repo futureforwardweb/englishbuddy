@@ -3718,43 +3718,39 @@ ul, ol { list-style: none; }
   inset: 0;
   z-index: 9000;
   display: none;
-  pointer-events: none;
+  pointer-events: none;   /* always passthrough — only the card intercepts clicks */
 }
 .onboarding-overlay.active {
   display: block;
-  pointer-events: all;
+  pointer-events: none;   /* still passthrough — user can click UI beneath */
 }
-/* Dark scrim that has a hole cut out for the spotlight */
-.onboarding-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(44, 36, 22, 0.72);
-  backdrop-filter: blur(2px);
-  z-index: 9001;
-  pointer-events: all;
-  transition: opacity var(--t-slow);
-}
+/* Spotlight: the coloured ring around the target element */
 .onboarding-spotlight {
   position: fixed;
   border-radius: var(--r-xl);
-  box-shadow: 0 0 0 9999px rgba(44, 36, 22, 0.72);
+  box-shadow:
+    0 0 0 4px var(--accent),
+    0 0 0 9999px rgba(20, 16, 10, 0.55);
   z-index: 9002;
   pointer-events: none;
-  transition: all var(--t-slow) cubic-bezier(0.4, 0, 0.2, 1);
-  border: 2px solid var(--accent);
+  transition: top 0.35s cubic-bezier(0.4,0,0.2,1),
+              left 0.35s cubic-bezier(0.4,0,0.2,1),
+              width 0.35s cubic-bezier(0.4,0,0.2,1),
+              height 0.35s cubic-bezier(0.4,0,0.2,1);
+  display: none;
 }
 .onboarding-card {
   position: fixed;
   background: var(--bg-card);
   border-radius: var(--r-2xl);
-  box-shadow: var(--shadow-xl);
-  width: min(380px, calc(100vw - 32px));
-  padding: var(--space-6);
+  box-shadow: var(--shadow-xl), 0 0 0 1px var(--ink-rule);
+  width: min(360px, calc(100vw - 24px));
+  padding: var(--space-5) var(--space-6);
   z-index: 9003;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  transition: all var(--t-slow) cubic-bezier(0.4, 0, 0.2, 1);
+  gap: var(--space-3);
+  pointer-events: all;    /* only the card itself captures clicks */
   border: 1.5px solid var(--bg-deep);
 }
 .onboarding-progress {
@@ -4287,3 +4283,44 @@ kbd {
 [data-theme="dark"] .blueprint-para-card { background: var(--bg-sunken); border-color: var(--ink-rule); }
 [data-theme="dark"] .blueprint-contention { background: var(--bg-sunken); }
 [data-theme="dark"] .blueprint-tip { background: var(--bg-deep); }
+
+/* ============================================================
+   FEATURES 88, 96, 98, 99, 100
+   ============================================================ */
+
+/* 88 — Paragraph Sprint mode card icon */
+#mode-sprint .mode-icon svg { color: var(--accent); }
+
+/* 96 — Examiner word cloud */
+.results-wordcloud { margin-top: var(--space-2); }
+.wordcloud-body {
+  background: var(--bg-card);
+  border: var(--border-card);
+  border-radius: var(--r-xl);
+  padding: var(--space-5);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.wc-chip {
+  padding: 4px 14px;
+  border-radius: var(--r-pill);
+  font-weight: 600;
+  cursor: default;
+  transition: transform var(--t-spring);
+  white-space: nowrap;
+}
+.wc-chip:hover { transform: scale(1.06); }
+.wc-chip--1 { font-size: 0.75rem; background: var(--bg-sunken);  color: var(--ink-ghost); }
+.wc-chip--2 { font-size: 0.85rem; background: var(--accent-pale); color: var(--accent); }
+.wc-chip--3 { font-size: 1rem;    background: var(--accent-pale); color: var(--accent); }
+.wc-chip--4 { font-size: 1.15rem; background: var(--accent);      color: #fff; }
+.wc-chip--5 { font-size: 1.3rem;  background: var(--accent);      color: #fff; box-shadow: var(--shadow-sm); }
+
+/* 99 — Scaffold generating state text update */
+.blueprint-generating-text {
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+  font-style: italic;
+}
