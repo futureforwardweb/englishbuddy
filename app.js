@@ -388,6 +388,87 @@ function escapeHtml(str) {
 }
 
 /* ============================================================
+   STREAMING TEXT UTILITY
+   Reveals text word-by-word into an element.
+   Returns a cancel function.
+   ============================================================ */
+function streamText(element, text, speed = 38, onComplete = null) {
+  // Split on whitespace but keep the whitespace tokens so spacing is preserved
+  const tokens = text.split(/(\s+)/);
+  let i = 0;
+  element.textContent = '';
+  element.classList.add('streaming');
+
+  function next() {
+    if (i < tokens.length) {
+      element.textContent += tokens[i];
+      i++;
+      // Pause slightly longer after punctuation for a natural cadence
+      const token = tokens[i - 1];
+      const delay = /[.!?]$/.test(token.trim()) ? speed * 4
+                  : token.trim() === '' ? speed / 4
+                  : speed;
+      timeoutId = setTimeout(next, delay);
+    } else {
+      element.classList.remove('streaming');
+      if (onComplete) onComplete();
+    }
+  }
+
+  let timeoutId = setTimeout(next, 0);
+  // Return cancel fn
+  return () => {
+    clearTimeout(timeoutId);
+    element.classList.remove('streaming');
+    element.textContent = text; // show full text immediately on cancel
+  };
+}
+
+/* ============================================================
+   FEEDBACK WIDGET
+   ============================================================ */
+let _feedbackStreamCancel = null;
+
+function showFeedbackWidget(skillLabel, assessmentText, whyText = '') {
+  const widget    = $('feedback-widget');
+  const skillEl   = $('feedback-widget-skill');
+  const textEl    = $('feedback-widget-text');
+  const whyEl     = $('feedback-widget-why');
+
+  if (!widget) return;
+
+  // Cancel any in-progress stream
+  if (_feedbackStreamCancel) {
+    _feedbackStreamCancel();
+    _feedbackStreamCancel = null;
+  }
+
+  skillEl.textContent  = skillLabel;
+  textEl.textContent   = '';
+  whyEl.textContent    = '';
+  whyEl.classList.remove('visible');
+
+  widget.setAttribute('aria-hidden', 'false');
+  widget.classList.add('visible');
+
+  // Stream the assessment, then stream the why
+  _feedbackStreamCancel = streamText(textEl, assessmentText, 30, () => {
+    if (whyText) {
+      whyEl.classList.add('visible');
+      _feedbackStreamCancel = streamText(whyEl, whyText, 30);
+    }
+  });
+}
+
+function hideFeedbackWidget() {
+  const widget = $('feedback-widget');
+  if (!widget) return;
+  if (_feedbackStreamCancel) { _feedbackStreamCancel(); _feedbackStreamCancel = null; }
+  widget.classList.remove('visible');
+  widget.setAttribute('aria-hidden', 'true');
+}
+
+/* ============================================================
    6. SCREEN: MODE SELECT
    ============================================================ */
 
@@ -801,6 +882,7 @@ function initEditorEvents() {
   $('skills-panel-close')?.addEventListener('click', closeSkillsPanel);
   $('skills-cancel')?.addEventListener('click', closeSkillsPanel);
   $('skills-analyse')?.addEventListener('click', handleSkillsAnalyse);
+  $('feedback-widget-close')?.addEventListener('click', hideFeedbackWidget);
 
   $('end-session-btn')?.addEventListener('click', () => {
     openModal('modal-confirm-end');
@@ -950,7 +1032,7 @@ ${skillInstructions}
 
 Provide your response now.`;
 
-  const result = await callGemini(prompt);
+  const result = await callGemini(prompt, null, 3500);
   displayInlineSuggestion(selectedText, result, skills);
 }
 
@@ -958,16 +1040,24 @@ function displayInlineSuggestion(originalText, aiResponse, skills) {
   const overlay = $('suggestion-overlay');
   if (!overlay) return;
 
-  // Parse sections from AI response
-  const assessmentMatch = aiResponse.match(/ASSESSMENT:\s*([\s\S]*?)(?=WHY THIS MATTERS:|SUGGESTED REWRITE:|$)/i);
-  const whyMatch        = aiResponse.match(/WHY THIS MATTERS:\s*([\s\S]*?)(?=SUGGESTED REWRITE:|EXPLANATION:|$)/i);
-  const rewriteMatch    = aiResponse.match(/SUGGESTED REWRITE:\s*([\s\S]*?)(?=EXPLANATION:|$)/i);
-  const explanationMatch= aiResponse.match(/EXPLANATION:\s*([\s\S]*?)$/i);
+  // ── Parse AI response sections ────────────────────────────
+  const assessmentMatch  = aiResponse.match(/ASSESSMENT:\s*([\s\S]*?)(?=WHY THIS MATTERS:|SUGGESTED REWRITE:|EXPLANATION:|$)/i);
+  const whyMatch         = aiResponse.match(/WHY THIS MATTERS:\s*([\s\S]*?)(?=SUGGESTED REWRITE:|EXPLANATION:|$)/i);
+  const rewriteMatch     = aiResponse.match(/SUGGESTED REWRITE:\s*([\s\S]*?)(?=EXPLANATION:|WHY THIS MATTERS:|$)/i);
+  const explanationMatch = aiResponse.match(/EXPLANATION:\s*([\s\S]*?)$/i);
 
   const assessment  = assessmentMatch?.[1]?.trim()  || '';
-  const why         = whyMatch?.[1]?.trim()          || '';
-  const rewrite     = rewriteMatch?.[1]?.trim()       || aiResponse;
-  const explanation = explanationMatch?.[1]?.trim()   || '';
+  const why         = whyMatch?.[1]?.trim()          || explanationMatch?.[1]?.trim() || '';
+  // If rewrite wasn't parsed cleanly, use the raw response minus the ASSESSMENT block
+  let rewrite = rewriteMatch?.[1]?.trim() || '';
+  if (!rewrite) {
+    // fallback: everything after SUGGESTED REWRITE: or the whole response
+    const fb = aiResponse.replace(/ASSESSMENT:[\s\S]*?(?=SUGGESTED REWRITE:|$)/i, '')
+                          .replace(/SUGGESTED REWRITE:/i, '')
+                          .replace(/EXPLANATION:[\s\S]*/i, '')
+                          .trim();
+    rewrite = fb || aiResponse;
+  }
 
   const skillLabel = skills.map(s => {
     const defs = STATE.course === 'literature'
@@ -976,58 +1066,79 @@ function displayInlineSuggestion(originalText, aiResponse, skills) {
     return defs[s]?.label || s;
   }).join(', ');
 
+  // ── Remove any previous suggestion cards ─────────────────
+  overlay.querySelectorAll('.suggestion-card').forEach(c => c.remove());
+
+  // ── Build the popup card ──────────────────────────────────
   const card = document.createElement('div');
   card.className = 'suggestion-card';
+
+  // Mini explanation — first sentence of why, or first 120 chars of assessment
+  const miniExplanation = why
+    ? why.split(/[.!?]/)[0].trim() + '.'
+    : assessment.slice(0, 120) + (assessment.length > 120 ? '...' : '');
+
   card.innerHTML = `
     <span class="suggestion-card-skill">${escapeHtml(skillLabel)}</span>
-    ${assessment ? `<p class="suggestion-card-original">${escapeHtml(assessment)}</p>` : ''}
-    <p class="suggestion-card-new">${escapeHtml(rewrite)}</p>
-    ${(why || explanation) ? `<p class="suggestion-card-why">${escapeHtml(why || explanation)}</p>` : ''}
+    <p class="suggestion-card-new" id="sc-rewrite-text"></p>
+    <p class="suggestion-card-why">${escapeHtml(miniExplanation)}</p>
     <div class="suggestion-card-actions">
       <button class="btn btn-accent btn-xs accept-btn" type="button">Accept</button>
       <button class="btn btn-ghost btn-xs dismiss-btn" type="button">Dismiss</button>
     </div>
   `;
 
-  // Position within viewport — fixed coords, no scrollY offset
+  // ── Position ABOVE the selection, clamped to viewport ────
   const sel = STATE.currentSelection?.range;
+  const CARD_W = 380;
+  const CARD_H = 200; // estimated — we don't know before render
+  const PAD    = 10;
+
   if (sel) {
     const rect = sel.getBoundingClientRect();
-    const cardWidth  = 360;
-    const cardHeight = 300; // estimated max height
-    const padding    = 12;
+    let top  = rect.top - CARD_H - PAD;
+    let left = rect.left + (rect.width / 2) - (CARD_W / 2);
 
-    // Prefer below selection, flip above if not enough room
-    let top  = rect.bottom + padding;
-    let left = rect.left + (rect.width / 2) - (cardWidth / 2);
+    // Flip below if not enough room above
+    if (top < PAD) top = rect.bottom + PAD;
 
-    if (top + cardHeight > window.innerHeight - padding) {
-      top = Math.max(padding, rect.top - cardHeight - padding);
-    }
-
-    left = Math.max(padding, Math.min(left, window.innerWidth - cardWidth - padding));
+    // Clamp horizontally
+    left = Math.max(PAD, Math.min(left, window.innerWidth - CARD_W - PAD));
+    // Clamp vertically bottom edge
+    top  = Math.max(PAD, Math.min(top,  window.innerHeight - CARD_H - PAD));
 
     card.style.top  = `${top}px`;
     card.style.left = `${left}px`;
   } else {
-    // Fallback: bottom-right corner
-    card.style.bottom = '80px';
+    card.style.top   = 'auto';
+    card.style.bottom = '160px';
     card.style.right  = '24px';
-    card.style.top    = 'auto';
     card.style.left   = 'auto';
   }
 
+  // ── Wire up buttons ───────────────────────────────────────
   card.querySelector('.accept-btn')?.addEventListener('click', () => {
     replaceSelectedText(rewrite);
     card.remove();
+    hideFeedbackWidget();
     showToast('Suggestion accepted.', 'success');
   });
 
   card.querySelector('.dismiss-btn')?.addEventListener('click', () => {
     card.remove();
+    hideFeedbackWidget();
   });
 
   overlay.appendChild(card);
+
+  // ── Stream the rewrite into the card ─────────────────────
+  const rewriteEl = card.querySelector('#sc-rewrite-text');
+  if (rewriteEl) streamText(rewriteEl, rewrite, 35);
+
+  // ── Send full assessment to the bottom widget ─────────────
+  if (assessment) {
+    showFeedbackWidget(skillLabel, assessment, why);
+  }
 }
 
 function replaceSelectedText(newText) {
@@ -1640,6 +1751,7 @@ function resetToStart() {
   closeModal('modal-text-setup');
   closeModal('modal-confirm-end');
   $('skills-panel')?.classList.remove('open');
+  hideFeedbackWidget();
 
   // Clear results
   $('criteria-list').innerHTML = '';
@@ -1686,6 +1798,7 @@ function initKeyboardShortcuts() {
       closeSkillsPanel();
       closeModal('modal-confirm-end');
       $('ai-toolbar')?.classList.remove('visible');
+      hideFeedbackWidget();
     }
 
     // Ctrl+S / Cmd+S saves draft
