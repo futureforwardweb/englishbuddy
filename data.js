@@ -1031,9 +1031,80 @@ RULES:
 const APP_CONFIG = {
   gemini_model: "gemini-2.5-flash",
   gemini_api_endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-  free_writing_review_interval_ms: 180000, // 3 minutes
-  autosave_interval_ms: 30000,             // 30 seconds
-  timer_warning_threshold_seconds: 300,    // 5 minutes remaining = warning colour
+  free_writing_review_interval_ms: 180000,
+  autosave_interval_ms: 30000,
+  timer_warning_threshold_seconds: 300,
   max_question_regenerations: 1,
-  version: "1.0.0"
+  reading_time_seconds: 300,
+  version: "1.1.0"
 };
+
+/* ============================================================
+   TERMINOLOGY BANKS
+   ============================================================ */
+
+const LITERATURE_TERMINOLOGY = [
+  { term: "ideology", definition: "A system of values, beliefs and assumptions held by a group, often naturalised through texts to serve dominant interests." },
+  { term: "discourse", definition: "A way of thinking and speaking about the world that shapes how reality is represented. Texts operate within and reproduce discourses." },
+  { term: "intertextuality", definition: "The relationship between texts, where one text references, echoes or responds to others, shaping meaning through these connections." },
+  { term: "hegemony", definition: "The process by which dominant groups maintain power not through force but through cultural consent and the naturalisation of their values." },
+  { term: "marginalisation", definition: "The process of representing certain groups or perspectives as peripheral, minor or inferior within a text." },
+  { term: "naturalise", definition: "To make ideological constructs appear normal, inevitable or common sense rather than the product of a particular worldview." },
+  { term: "representation", definition: "The way language constructs people, places, events and ideas — never a neutral reflection of reality but always a selective construction." },
+  { term: "reader positioning", definition: "The ways in which a text encourages readers to adopt particular attitudes, values or responses." },
+  { term: "dominant reading", definition: "The interpretation that aligns with the preferred or intended meaning of the text, accepting its ideological assumptions." },
+  { term: "resistant reading", definition: "An interpretation that reads against the grain of the text, challenging or refusing its ideological assumptions." },
+  { term: "non-dominant reading", definition: "An interpretation that prioritises perspectives marginalised by the text or offers an alternative to the dominant reading." },
+  { term: "symptomatic reading", definition: "A reading that examines what a text reveals about underlying social or ideological tensions, including what it represses or silences." },
+  { term: "genre", definition: "A category of text defined by shared conventions, features and reader expectations. Genres carry ideological and aesthetic functions." },
+  { term: "aesthetic function", definition: "The ways in which literary techniques create beauty, pleasure or artistic effect, beyond purely ideological purposes." },
+  { term: "form", definition: "The structural and generic choices that shape a text — including genre, mode, medium and organisation." },
+  { term: "metalanguage", definition: "Language used to describe and analyse language — critical and linguistic terminology used to discuss how texts work." },
+  { term: "connotation", definition: "The associations and implied meanings of a word or image beyond its literal or denotative meaning." },
+  { term: "denotation", definition: "The literal, dictionary definition of a word, as opposed to its connotative or implied meaning." },
+  { term: "focalization", definition: "The perspective through which narrative events are presented — who 'sees' the story, which shapes what readers know and feel." },
+  { term: "polysemy", definition: "The capacity of a text or sign to carry multiple meanings simultaneously, allowing for a range of interpretations." },
+  { term: "subversion", definition: "The undermining or challenging of dominant conventions, values or expectations within a text." },
+  { term: "cultural capital", definition: "Knowledge, skills and cultural references that have value within a particular society and are often embedded in literary texts." },
+  { term: "othering", definition: "The process of representing groups as fundamentally different from a dominant 'us', reinforcing cultural hierarchies." },
+  { term: "binary opposition", definition: "A pair of contrasting concepts or values positioned against each other in a text, often with one privileged over the other." },
+  { term: "epistolary", definition: "A form of narrative constructed through letters or documents." },
+  { term: "free indirect discourse", definition: "A narrative technique blending third-person narration with the character's own thoughts and voice." },
+  { term: "dramatic irony", definition: "When the audience knows something characters do not, creating tension or additional meaning." },
+  { term: "soliloquy", definition: "A dramatic monologue in which a character speaks their inner thoughts aloud, usually alone on stage." },
+  { term: "motif", definition: "A recurring image, symbol or idea within a text that accumulates meaning across its repetitions." },
+  { term: "juxtaposition", definition: "The placement of contrasting elements side by side to highlight differences or create irony." }
+];
+
+const ENGLISH_TERMINOLOGY = [
+  { term: "language features", definition: "Specific choices of vocabulary, syntax, tone and figurative language a composer uses to create meaning." },
+  { term: "generic conventions", definition: "The recognisable features associated with particular genres that shape audience expectations and responses." },
+  { term: "mode", definition: "The form or channel through which a text is delivered — written, spoken, visual or multimodal." },
+  { term: "register", definition: "The level of formality of language, adjusted to suit context, purpose and audience." },
+  { term: "voice", definition: "The distinctive personality, tone and perspective of the narrator or speaker as constructed through language choices." },
+  { term: "perspective", definition: "The particular viewpoint or angle from which a text presents its content, always reflecting specific values." },
+  { term: "rhetorical question", definition: "A question posed for effect rather than to elicit an answer, used to engage and position an audience." },
+  { term: "tripling", definition: "The use of three parallel words, phrases or clauses for rhythmic and rhetorical emphasis." },
+  { term: "anaphora", definition: "The deliberate repetition of a word or phrase at the beginning of successive clauses for rhetorical effect." },
+  { term: "juxtaposition", definition: "Placing contrasting ideas or images side by side to highlight difference and generate meaning." },
+  { term: "ethos", definition: "An appeal to the credibility or character of the speaker to establish trust with the audience." },
+  { term: "pathos", definition: "An appeal to the emotions of the audience to generate sympathy, outrage or connection." },
+  { term: "logos", definition: "An appeal to logic and reason, often through evidence, statistics or reasoned argument." },
+  { term: "satire", definition: "A mode of writing that uses irony, humour or exaggeration to critique social, political or cultural issues." },
+  { term: "irony", definition: "A gap between what is said and what is meant, or between expectation and reality, used for critical or comic effect." },
+  { term: "allusion", definition: "An indirect reference to another text, event or cultural figure that enriches meaning for readers who recognise it." },
+  { term: "symbolism", definition: "The use of objects, characters or settings to represent abstract ideas or values." },
+  { term: "imagery", definition: "Descriptive language that appeals to the senses to create vivid mental pictures." },
+  { term: "metaphor", definition: "A direct comparison between two unlike things, asserting that one is the other to transfer qualities." },
+  { term: "simile", definition: "A comparison using 'like' or 'as' to highlight a resemblance between two unlike things." },
+  { term: "tone", definition: "The attitude or feeling conveyed by the writer or speaker through their language choices." },
+  { term: "cohesion", definition: "The way a text holds together through linguistic devices such as pronouns, connectives and lexical repetition." },
+  { term: "syntax", definition: "The arrangement of words and phrases to create well-formed sentences — sentence structure choices carry meaning." },
+  { term: "diction", definition: "A writer's specific word choices and vocabulary, which shape tone, meaning and audience positioning." },
+  { term: "omniscient narrator", definition: "A narrator who has access to all characters' thoughts and feelings, with a god-like perspective." },
+  { term: "first-person narrator", definition: "A narrator who speaks as 'I', offering an intimate but limited and potentially unreliable perspective." },
+  { term: "unreliable narrator", definition: "A narrator whose account cannot be fully trusted, often due to bias, limited knowledge or psychological instability." },
+  { term: "subtext", definition: "Meaning that is implied beneath the surface of a text rather than stated explicitly." },
+  { term: "context of production", definition: "The circumstances in which a text was created, including historical, social and cultural factors." },
+  { term: "context of reception", definition: "The circumstances in which a text is read or viewed, which shape how audiences interpret it." }
+];
