@@ -897,6 +897,7 @@ function initCountdown(totalSeconds) {
     STATE.timerSeconds--;
     if (display) display.textContent = formatTime(STATE.timerSeconds);
     if (STATE.timerSeconds <= APP_CONFIG.timer_warning_threshold_seconds) display?.classList.add('timer-warning');
+    updateTimePressure();
     if (STATE.timerSeconds <= 0) { clearInterval(STATE.timerInterval); triggerSessionEnd(true); }
   }, 1000);
 }
@@ -1017,11 +1018,15 @@ function updateWordCount() {
   if (!area || !count) return;
   const w = getWordCount(area.innerText);
   count.textContent = `${w} word${w !== 1 ? 's' : ''}`;
+  // Passive trackers
+  updateQuoteTracker();
 }
 
 function startAutosave() {
   clearInterval(STATE.autosaveInterval);
   STATE.autosaveInterval = setInterval(saveDraft, APP_CONFIG.autosave_interval_ms);
+  startVersionHistory();
+  updateVersionRestoreUI();
 }
 
 /* ============================================================
@@ -1276,6 +1281,9 @@ function initEditorEvents() {
   // Init new features
   initTerminologyBank();
   initQuoteBankPopup();
+  initSynonymUpgrader();
+  initVersionRestore();
+  initQuoteTracker();
 }
 
 function handleTextSelection() {
@@ -1601,6 +1609,7 @@ function triggerSessionEnd(timerExpired = false) {
   clearInterval(STATE.autosaveInterval);
   clearInterval(STATE.reviewInterval);
   clearInterval(STATE.readingTimeInterval);
+  stopVersionHistory();
   saveDraft();
 
   const elapsed = STATE.mode === 'freewrite' ? STATE.stopwatchSeconds : STATE.timerDuration * 60 - STATE.timerSeconds;
@@ -1846,6 +1855,10 @@ function renderMarkingResults(data) {
   }
 
   $('topband-generate-btn')?.addEventListener('click', generateTopBandExample, { once: true });
+
+  // Vocab report
+  const essay = loadDraft() || '';
+  if (essay.trim()) buildVocabReport(essay);
 
   const tryAgainBtn = $('results-try-again-btn');
   if (tryAgainBtn && STATE.tryAgainData) tryAgainBtn.style.display = '';
@@ -2111,6 +2124,7 @@ function resetToStart() {
   clearInterval(STATE.autosaveInterval);
   clearInterval(STATE.reviewInterval);
   clearInterval(STATE.readingTimeInterval);
+  stopVersionHistory();
 
   const key = STATE.apiKey;
   Object.keys(STATE).forEach(k => STATE[k] = null);
@@ -2159,9 +2173,317 @@ function resetToStart() {
   $('question-header')?.classList.remove('visible');
   $('stimulus-header')?.classList.remove('visible');
   if ($('complexity-gutter')) $('complexity-gutter').innerHTML = '';
+  // Reset new feature UI
+  $('synonym-popup')?.classList.remove('visible');
+  const quoteTracker = $('quote-tracker');
+  if (quoteTracker) quoteTracker.style.display = 'none';
+  const versionWrap = $('version-restore-wrap');
+  if (versionWrap) versionWrap.style.display = 'none';
+  const timePressure = $('time-pressure-indicator');
+  if (timePressure) timePressure.style.display = 'none';
+  const vocabSection = $('results-vocab');
+  if (vocabSection) vocabSection.style.display = 'none';
+  // Remove pressure classes from writing area (area already declared above)
+  $('writing-area')?.classList.remove('pressure-low', 'pressure-mid', 'pressure-high');
 
   showScreen('screen-course');
   renderSessionHistory();
+}
+
+/* ============================================================
+   31. QUOTE USAGE TRACKER
+   ============================================================ */
+function initQuoteTracker() {
+  if (STATE.course !== 'literature' || !STATE.quoteBank.length) return;
+  const tracker = $('quote-tracker');
+  if (tracker) tracker.style.display = 'flex';
+  updateQuoteTracker();
+}
+
+function updateQuoteTracker() {
+  if (STATE.course !== 'literature') return;
+  const tracker  = $('quote-tracker');
+  const trackTxt = $('quote-tracker-text');
+  if (!tracker || !trackTxt) return;
+
+  const essay = $('writing-area')?.innerText?.toLowerCase() || '';
+  if (!essay || !STATE.quoteBank.length) return;
+
+  const used = STATE.quoteBank.filter(q => {
+    // Match first 20 chars of quote (enough to be distinctive, handles partial embeds)
+    const snippet = q.text.toLowerCase().slice(0, 20).trim();
+    return snippet.length > 4 && essay.includes(snippet);
+  });
+
+  const count = used.length;
+  const total = STATE.quoteBank.length;
+  trackTxt.textContent = `${count}/${total} quotes used`;
+  tracker.className = 'quote-tracker' + (count === 0 && getWordCount(essay) > 150 ? ' warn' : count >= 2 ? ' good' : '');
+}
+
+/* ============================================================
+   32. SYNONYM / REGISTER UPGRADER
+   ============================================================ */
+function initSynonymUpgrader() {
+  const area    = $('writing-area');
+  const popup   = $('synonym-popup');
+  const closeBtn= $('synonym-popup-close');
+  if (!area || !popup) return;
+
+  area.addEventListener('dblclick', (e) => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    const word = sel.toString().trim().toLowerCase().replace(/[^a-z\s]/g, '');
+    if (!word || word.length < 2) return;
+
+    const synonyms = SYNONYM_BANK[word];
+    if (!synonyms || !synonyms.length) return;
+
+    // Position popup above the selection
+    const rect = sel.getRangeAt(0).getBoundingClientRect();
+    const POPUP_W = 220, POPUP_H = 160, PAD = 8;
+    let top  = rect.top - POPUP_H - PAD;
+    let left = rect.left + rect.width / 2 - POPUP_W / 2;
+    if (top < PAD) top = rect.bottom + PAD;
+    left = Math.max(PAD, Math.min(left, window.innerWidth - POPUP_W - PAD));
+    top  = Math.max(PAD, Math.min(top,  window.innerHeight - POPUP_H - PAD));
+
+    popup.style.top  = `${top}px`;
+    popup.style.left = `${left}px`;
+
+    // Store selection range for replacement
+    const range = sel.getRangeAt(0).cloneRange();
+
+    // Build list
+    const wordEl = $('synonym-popup-word');
+    const listEl = $('synonym-list');
+    if (wordEl) wordEl.textContent = word;
+    if (listEl) {
+      listEl.innerHTML = synonyms.map((s, i) => `
+        <div class="synonym-item" data-idx="${i}">
+          <span class="synonym-word">${escapeHtml(s.word)}</span>
+          <span class="synonym-register">${escapeHtml(s.register)}</span>
+        </div>`).join('');
+
+      listEl.querySelectorAll('.synonym-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const syn = synonyms[parseInt(item.dataset.idx)];
+          if (syn) {
+            // Restore and replace the selection
+            sel.removeAllRanges();
+            sel.addRange(range);
+            range.deleteContents();
+            range.insertNode(document.createTextNode(syn.word));
+            popup.classList.remove('visible');
+            updateWordCount(); saveDraft();
+            showToast(`Replaced with "${syn.word}"`, 'success');
+          }
+        });
+      });
+    }
+
+    popup.classList.add('visible');
+    popup.setAttribute('aria-hidden', 'false');
+    e.stopPropagation();
+  });
+
+  closeBtn?.addEventListener('click', () => {
+    popup.classList.remove('visible');
+    popup.setAttribute('aria-hidden', 'true');
+  });
+
+  // Close on click outside
+  document.addEventListener('mousedown', (e) => {
+    if (!popup.contains(e.target) && e.target !== area) {
+      popup.classList.remove('visible');
+    }
+  });
+}
+
+/* ============================================================
+   33. TIME PRESSURE SIMULATION
+   ============================================================ */
+function updateTimePressure() {
+  if (STATE.mode === 'freewrite' || !STATE.timerDuration) return;
+  const area      = $('writing-area');
+  const indicator = $('time-pressure-indicator');
+  const dot       = $('time-pressure-dot');
+  const txt       = $('time-pressure-text');
+  if (!area || !indicator) return;
+
+  const totalSecs   = (STATE.timerDuration || 45) * 60;
+  const remaining   = STATE.timerSeconds;
+  const pctLeft     = remaining / totalSecs;
+
+  // Remove all pressure classes
+  area.classList.remove('pressure-low', 'pressure-mid', 'pressure-high');
+  indicator.classList.remove('level-1', 'level-2');
+  indicator.style.display = 'none';
+
+  if (remaining <= 0) return;
+
+  if (pctLeft <= 0.083) {
+    // ≤5 min left — high pressure
+    area.classList.add('pressure-high');
+    indicator.style.display = 'flex';
+    indicator.classList.add('level-2');
+    if (txt) txt.textContent = 'Final push';
+  } else if (pctLeft <= 0.167) {
+    // ≤10 min left — medium pressure
+    area.classList.add('pressure-mid');
+    indicator.style.display = 'flex';
+    indicator.classList.add('level-1');
+    if (txt) txt.textContent = '10 min left';
+  } else if (pctLeft <= 0.25) {
+    // ≤25% left — low pressure
+    area.classList.add('pressure-low');
+  }
+}
+
+/* ============================================================
+   34. VOCABULARY REPORT
+   ============================================================ */
+function buildVocabReport(essay) {
+  const section = $('results-vocab');
+  const body    = $('vocab-report-body');
+  if (!section || !body || !essay) return;
+
+  const words  = essay.toLowerCase();
+  const issues = [];
+
+  WEAK_WORDS.forEach(entry => {
+    // Count occurrences (whole word match)
+    const regex = new RegExp(`\\b${entry.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+    const matches = (essay.match(regex) || []).length;
+    if (matches >= 3 || (matches >= 2 && ['is','has','very','really','but','so','also'].includes(entry.word))) {
+      issues.push({ word: entry.word, count: matches, alternatives: entry.alternatives });
+    }
+  });
+
+  if (!issues.length) {
+    section.style.display = '';
+    body.innerHTML = `<div class="vocab-report-intro">No overused weak words detected. Vocabulary looks strong.</div>`;
+    return;
+  }
+
+  section.style.display = '';
+  const introText = `Found ${issues.length} word${issues.length !== 1 ? 's' : ''} used too frequently. Click an alternative to replace all instances.`;
+
+  body.innerHTML = `
+    <div class="vocab-report-intro">${escapeHtml(introText)}</div>
+    <div class="vocab-weak-list" id="vocab-weak-list"></div>`;
+
+  const list = body.querySelector('#vocab-weak-list');
+  if (!list) return;
+
+  issues.forEach(issue => {
+    const row = document.createElement('div');
+    row.className = 'vocab-weak-item';
+
+    const alts = (issue.alternatives || []).map(alt =>
+      `<span class="vocab-alt-chip" data-original="${escapeHtml(issue.word)}" data-replacement="${escapeHtml(alt)}">${escapeHtml(alt)}</span>`
+    ).join('');
+
+    row.innerHTML = `
+      <span class="vocab-weak-word">${escapeHtml(issue.word)}</span>
+      <span class="vocab-weak-count">×${issue.count}</span>
+      <div class="vocab-weak-alternatives">${alts || '<span style="font-size:0.8rem;color:var(--ink-ghost)">Vary this word manually</span>'}</div>`;
+
+    list.appendChild(row);
+  });
+
+  // Wire up replacement chips — replace FIRST instance in the draft
+  body.querySelectorAll('.vocab-alt-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const original    = chip.dataset.original;
+      const replacement = chip.dataset.replacement;
+      const area        = $('writing-area');
+      if (!area || !original || !replacement) return;
+
+      // Replace first occurrence only (user can click again for next)
+      const regex = new RegExp(`\\b${original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+      area.innerHTML = area.innerHTML.replace(regex, replacement);
+      saveDraft();
+
+      // Update count display
+      const countEl = chip.closest('.vocab-weak-item')?.querySelector('.vocab-weak-count');
+      const newCount = (area.innerText.match(new RegExp(`\\b${original}\\b`, 'gi')) || []).length;
+      if (countEl) countEl.textContent = `×${newCount}`;
+      if (newCount === 0) chip.closest('.vocab-weak-item')?.remove();
+
+      showToast(`Replaced "${original}" → "${replacement}"`, 'success');
+    });
+  });
+}
+
+/* ============================================================
+   36. SMART AUTOSAVE WITH VERSION HISTORY
+   ============================================================ */
+const VERSION_MAX = 3;
+const VERSION_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+let _versionInterval = null;
+
+function startVersionHistory() {
+  clearInterval(_versionInterval);
+  _versionInterval = setInterval(saveVersion, VERSION_INTERVAL_MS);
+}
+
+function stopVersionHistory() {
+  clearInterval(_versionInterval);
+}
+
+function saveVersion() {
+  const content = $('writing-area')?.innerText || '';
+  if (!content.trim()) return;
+  const key  = `scriptsense_versions_${STATE.course}_${STATE.mode}`;
+  try {
+    const existing = JSON.parse(localStorage.getItem(key) || '[]');
+    existing.unshift({ ts: Date.now(), label: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), content });
+    localStorage.setItem(key, JSON.stringify(existing.slice(0, VERSION_MAX)));
+    updateVersionRestoreUI();
+  } catch(e) {}
+}
+
+function loadVersions() {
+  const key = `scriptsense_versions_${STATE.course}_${STATE.mode}`;
+  try { return JSON.parse(localStorage.getItem(key) || '[]'); }
+  catch(e) { return []; }
+}
+
+function updateVersionRestoreUI() {
+  const wrap   = $('version-restore-wrap');
+  const select = $('version-select');
+  if (!wrap || !select) return;
+
+  const versions = loadVersions();
+  if (!versions.length) { wrap.style.display = 'none'; return; }
+
+  wrap.style.display = '';
+  // Rebuild options
+  select.innerHTML = '<option value="">Restore version...</option>' +
+    versions.map((v, i) => `<option value="${i}">Version from ${escapeHtml(v.label)}</option>`).join('');
+}
+
+function initVersionRestore() {
+  const select = $('version-select');
+  if (!select) return;
+  select.addEventListener('change', () => {
+    const idx = parseInt(select.value, 10);
+    if (isNaN(idx)) return;
+    const versions = loadVersions();
+    const v = versions[idx];
+    if (!v) return;
+    if (!confirm(`Restore version from ${v.label}? Your current text will be replaced.`)) {
+      select.value = '';
+      return;
+    }
+    const area = $('writing-area');
+    if (area) area.innerText = v.content;
+    updateWordCount();
+    saveDraft();
+    select.value = '';
+    showToast(`Version from ${v.label} restored.`, 'success');
+  });
 }
 
 /* ============================================================
