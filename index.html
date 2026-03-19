@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ScriptSense</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ============================================================
+       NOISE OVERLAY
+  ============================================================ -->
+  <div class="noise-overlay" aria-hidden="true"></div>
+
+  <!-- ============================================================
+       SCREEN WRAPPER
+  ============================================================ -->
+  <div id="app">
+
+    <!-- ============================================================
+         SCREEN: API KEY GATE
+         id="screen-apikey"
+    ============================================================ -->
+    <div class="screen active" id="screen-apikey">
+      <div class="gate-container">
+
+        <div class="gate-brand">
+          <div class="brand-mark" aria-hidden="true">S</div>
+          <h1 class="brand-name">ScriptSense</h1>
+          <p class="brand-tagline">WACE ATAR English Writing Practice</p>
+        </div>
+
+        <div class="gate-card">
+          <div class="gate-card-header">
+            <span class="gate-step-label">Step 1 of 1</span>
+            <h2 class="gate-card-title">Enter your Gemini API Key</h2>
+            <p class="gate-card-sub">
+              Your key is used only in this browser session and sent directly
+              to Google's Gemini API. It is never stored or shared.
+            </p>
+          </div>
+
+          <div class="gate-field-wrap">
+            <div class="field-group">
+              <label class="field-label" for="apikey-input">API Key</label>
+              <div class="field-input-wrap">
+                <input
+                  type="password"
+                  id="apikey-input"
+                  class="field-input"
+                  placeholder="AIza..."
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <button class="field-toggle-visibility" id="apikey-toggle" aria-label="Toggle key visibility" type="button">
+                  <svg class="icon icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <p class="field-hint">
+                Get a free key at <a href="https://aistudio.google.com" target="_blank" rel="noopener" class="link">aistudio.google.com</a>
+              </p>
+            </div>
+
+            <div class="gate-error-wrap" id="apikey-error" aria-live="polite">
+              <svg class="icon icon-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span id="apikey-error-text">Invalid key. Please try again.</span>
+            </div>
+
+            <button class="btn btn-primary btn-full" id="apikey-submit" type="button">
+              <span class="btn-text">Verify Key</span>
+              <span class="btn-loader" aria-hidden="true"></span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <!-- /screen-apikey -->
+
+
+    <!-- ============================================================
+         SCREEN: COURSE SELECT
+         id="screen-course"
+    ============================================================ -->
+    <div class="screen" id="screen-course">
+      <div class="select-container">
+
+        <div class="select-header">
+          <div class="screen-brand-small">
+            <span class="brand-mark-small">S</span>
+            <span class="brand-name-small">ScriptSense</span>
+          </div>
+          <h2 class="select-title">Which course are you studying?</h2>
+        </div>
+
+        <div class="course-cards">
+
+          <button class="course-card" id="course-literature" data-course="literature" type="button">
+            <div class="course-card-inner">
+              <div class="course-card-glyph" aria-hidden="true">I</div>
+              <div class="course-card-body">
+                <h3 class="course-card-title">English Literature</h3>
+                <p class="course-card-subtitle">ATAR · WACE</p>
+                <p class="course-card-desc">
+                  Text-based analysis, critical readings, essay response to studied works.
+                </p>
+                <ul class="course-card-tags">
+                  <li class="tag">Task 1</li>
+                  <li class="tag">Task 2</li>
+                  <li class="tag">Task 3</li>
+                  <li class="tag">Ideology</li>
+                  <li class="tag">Intertextuality</li>
+                </ul>
+              </div>
+              <div class="course-card-arrow" aria-hidden="true">→</div>
+            </div>
+          </button>
+
+          <button class="course-card" id="course-english" data-course="english" type="button">
+            <div class="course-card-inner">
+              <div class="course-card-glyph" aria-hidden="true">II</div>
+              <div class="course-card-body">
+                <h3 class="course-card-title">English</h3>
+                <p class="course-card-subtitle">ATAR · WACE</p>
+                <p class="course-card-desc">
+                  Composing, responding and comprehending across a range of forms and contexts.
+                </p>
+                <ul class="course-card-tags">
+                  <li class="tag">Composing</li>
+                  <li class="tag">Responding</li>
+                  <li class="tag">Comprehending</li>
+                </ul>
+              </div>
+              <div class="course-card-arrow" aria-hidden="true">→</div>
+            </div>
+          </button>
+
+        </div>
+
+      </div>
+    </div>
+    <!-- /screen-course -->
+
+
+    <!-- ============================================================
+         SCREEN: MODE SELECT
+         id="screen-mode"
+    ============================================================ -->
+    <div class="screen" id="screen-mode">
+      <div class="select-container">
+
+        <div class="select-header">
+          <button class="back-btn" id="mode-back" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <div class="course-badge" id="mode-course-badge">Literature ATAR</div>
+          <h2 class="select-title">Select a mode</h2>
+        </div>
+
+        <!-- English ATAR section select (hidden for Literature) -->
+        <div class="section-select-wrap" id="english-section-wrap">
+          <p class="section-select-label">Which section?</p>
+          <div class="section-pills">
+            <button class="section-pill active" data-section="composing" type="button">Composing</button>
+            <button class="section-pill" data-section="responding" type="button">Responding</button>
+            <button class="section-pill" data-section="comprehending" type="button">Comprehending</button>
+          </div>
+        </div>
+
+        <div class="mode-cards">
+
+          <button class="mode-card" id="mode-freewrite" data-mode="freewrite" type="button">
+            <div class="mode-card-inner">
+              <div class="mode-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              </div>
+              <div class="mode-card-body">
+                <h3 class="mode-card-title">Free Writing</h3>
+                <p class="mode-card-desc">
+                  Open-ended practice with a running stopwatch.
+                  AI reviews your writing every 3 minutes and
+                  offers suggestions in the margin.
+                </p>
+                <div class="mode-card-detail">
+                  <span class="detail-pill">Stopwatch</span>
+                  <span class="detail-pill">AI every 3 min</span>
+                  <span class="detail-pill">No question</span>
+                </div>
+              </div>
+            </div>
+          </button>
+
+          <button class="mode-card" id="mode-practice" data-mode="practice" type="button">
+            <div class="mode-card-inner">
+              <div class="mode-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <div class="mode-card-body">
+                <h3 class="mode-card-title">Practice Question</h3>
+                <p class="mode-card-desc">
+                  AI generates an exam-style question drawn from
+                  the past 5 years of WACE papers. Countdown timer.
+                  Full WACE marking at the end.
+                </p>
+                <div class="mode-card-detail">
+                  <span class="detail-pill">AI Question</span>
+                  <span class="detail-pill">Countdown</span>
+                  <span class="detail-pill">WACE Marking</span>
+                </div>
+              </div>
+            </div>
+          </button>
+
+        </div>
+
+      </div>
+    </div>
+    <!-- /screen-mode -->
+
+
+    <!-- ============================================================
+         SCREEN: TIMER DURATION SELECT (Practice Question only)
+         id="screen-timer"
+    ============================================================ -->
+    <div class="screen" id="screen-timer">
+      <div class="select-container select-container--narrow">
+
+        <div class="select-header">
+          <button class="back-btn" id="timer-back" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="15 18 9 12 15 6"/></svg>
+            Back
+          </button>
+          <h2 class="select-title">How long is your session?</h2>
+          <p class="select-sub">The countdown will begin once your question is generated.</p>
+        </div>
+
+        <div class="timer-options">
+          <button class="timer-option" data-duration="30" type="button">
+            <span class="timer-option-value">30</span>
+            <span class="timer-option-unit">minutes</span>
+          </button>
+          <button class="timer-option" data-duration="45" type="button">
+            <span class="timer-option-value">45</span>
+            <span class="timer-option-unit">minutes</span>
+          </button>
+          <button class="timer-option" data-duration="60" type="button">
+            <span class="timer-option-value">60</span>
+            <span class="timer-option-unit">minutes</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+    <!-- /screen-timer -->
+
+
+    <!-- ============================================================
+         SCREEN: WRITING ENVIRONMENT
+         id="screen-editor"
+    ============================================================ -->
+    <div class="screen" id="screen-editor">
+
+      <!-- Top Bar -->
+      <header class="editor-topbar" id="editor-topbar">
+        <div class="topbar-left">
+          <span class="topbar-brand">S</span>
+          <span class="topbar-badge topbar-badge--course" id="topbar-course-badge">Literature ATAR</span>
+          <span class="topbar-badge topbar-badge--mode" id="topbar-mode-badge">Practice Question</span>
+          <span class="topbar-badge topbar-badge--text" id="topbar-text-badge"></span>
+        </div>
+        <div class="topbar-center">
+          <div class="timer-display" id="timer-display">
+            <span class="timer-value" id="timer-value">45:00</span>
+            <span class="timer-label" id="timer-label">remaining</span>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <button class="btn btn-ghost btn-sm" id="end-session-btn" type="button">
+            End Session
+          </button>
+        </div>
+      </header>
+
+      <!-- Editor Body -->
+      <main class="editor-body" id="editor-body">
+
+        <!-- Question Header (Practice Question mode only) -->
+        <div class="question-header" id="question-header">
+          <div class="question-header-inner">
+            <div class="question-generating" id="question-generating">
+              <div class="generating-spinner" aria-hidden="true"></div>
+              <span>Generating your question...</span>
+            </div>
+            <div class="question-content" id="question-content">
+              <span class="question-label">Question</span>
+              <p class="question-text" id="question-text"></p>
+              <div class="question-actions" id="question-actions">
+                <button class="btn btn-ghost btn-xs" id="question-regenerate" type="button">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                  Regenerate
+                </button>
+                <button class="btn btn-primary btn-sm" id="question-start" type="button">
+                  Start Writing →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Comprehending Stimulus (English Comprehending mode only) -->
+        <div class="stimulus-header" id="stimulus-header">
+          <div class="stimulus-header-inner">
+            <div class="stimulus-generating" id="stimulus-generating">
+              <div class="generating-spinner" aria-hidden="true"></div>
+              <span>Generating stimulus material...</span>
+            </div>
+            <div class="stimulus-content" id="stimulus-content">
+              <span class="stimulus-label">Stimulus</span>
+              <div class="stimulus-text" id="stimulus-text"></div>
+              <div class="stimulus-questions" id="stimulus-questions">
+                <span class="stimulus-questions-label">Questions</span>
+                <ol class="stimulus-questions-list" id="stimulus-questions-list"></ol>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Writing Area -->
+        <div class="writing-area-wrap" id="writing-area-wrap">
+          <div
+            class="writing-area"
+            id="writing-area"
+            contenteditable="true"
+            spellcheck="true"
+            data-placeholder="Begin writing here..."
+            role="textbox"
+            aria-multiline="true"
+            aria-label="Writing area"
+          ></div>
+        </div>
+
+        <!-- AI Review Suggestions Tray (Free Writing) -->
+        <div class="suggestions-tray" id="suggestions-tray" aria-live="polite">
+          <div class="suggestions-tray-header">
+            <div class="ai-review-indicator" id="ai-review-indicator">
+              <div class="review-pulse" aria-hidden="true"></div>
+              <span id="ai-review-label">AI reviewing...</span>
+            </div>
+            <button class="suggestions-toggle" id="suggestions-toggle" type="button" aria-expanded="false">
+              <span id="suggestions-count">0 suggestions</span>
+              <svg class="icon icon-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          </div>
+          <div class="suggestions-list" id="suggestions-list">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+      </main>
+
+      <!-- Bottom Bar -->
+      <footer class="editor-bottombar" id="editor-bottombar">
+        <div class="bottombar-left">
+          <span class="word-count" id="word-count">0 words</span>
+          <span class="autosave-indicator" id="autosave-indicator">
+            <svg class="icon icon-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            <span id="autosave-text">Draft saved</span>
+          </span>
+        </div>
+        <div class="bottombar-right">
+          <button class="btn btn-accent" id="ai-help-btn" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Get AI Help
+          </button>
+        </div>
+      </footer>
+
+      <!-- AI Help Floating Toolbar (appears on text selection) -->
+      <div class="ai-toolbar" id="ai-toolbar" role="toolbar" aria-label="AI writing assistance">
+        <button class="ai-toolbar-btn" id="ai-toolbar-help" type="button">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Help me with this
+        </button>
+      </div>
+
+      <!-- AI Skills Panel (slides in from right) -->
+      <aside class="skills-panel" id="skills-panel" aria-label="AI skill selection" aria-hidden="true">
+        <div class="skills-panel-inner">
+
+          <div class="skills-panel-header">
+            <h3 class="skills-panel-title">What do you need help with?</h3>
+            <button class="skills-panel-close" id="skills-panel-close" type="button" aria-label="Close">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+
+          <div class="skills-panel-selection-info">
+            <span class="selection-label">Selected text:</span>
+            <blockquote class="selection-preview" id="selection-preview"></blockquote>
+          </div>
+
+          <!-- Literature ATAR Skills -->
+          <div class="skills-list" id="skills-list-literature">
+            <label class="skill-checkbox">
+              <input type="checkbox" name="skill" value="engagement" />
+              <span class="skill-checkbox-ui"></span>
+              <div class="skill-info">
+                <span class="skill-name">Engagement with the question</span>
+                <span class="skill-desc">How directly and specifically you address the exact task set</span>
+              </div>
+            </label>
+            <label class="skill-checkbox">
+              <input type="checkbox" name="skill" value="syllabus_concepts" />
+              <span class="skill-checkbox-ui"></span>
+              <div class="skill-info">
+                <span class="skill-name">Application of syllabus concepts</span>
+                <span class="skill-desc">Use of course-specific terminology and critical frameworks</span>
+              </div>
+            </label>
+            <label class="skill-checkbox">
+              <input type="checkbox" name="skill" value="textual_evidence" />
+              <span class="skill-checkbox-ui"></span>
+              <div class="skill-info">
+                <span class="skill-name">Use & embedding of textual evidence</span>
+                <span class="skill-desc">Integration of quotes and textual references into your argument</span>
+              </div>
+            </label>
+            <label class="skill-checkbox">
+              <input type="checkbox" name="skill" value="terminology" />
+              <span class="skill-checkbox-ui"></span>
+              <div class="skill-info">
+                <span class="skill-name">Linguistic, stylistic & critical terminology</span>
+                <span class="skill-desc">Accurate and sophisticated use of literary and critical terms</span>
+              </div>
+            </label>
+            <label class="skill-checkbox">
+              <input type="checkbox" name="skill" value="sophistication" />
+              <span class="skill-checkbox-ui"></span>
+              <div class="skill-info">
+                <span class="skill-name">Sophistication of ideas</span>
+                <span class="skill-desc">Non-dominant, nuanced or unexpected readings of the text</span>
+              </div>
+            </label>
+            <label class="skill-checkbox">
+              <input type="checkbox" name="skill" value="expression" />
+              <span class="skill-checkbox-ui"></span>
+              <div class="skill-info">
+                <span class="skill-name">Expression, style & structure</span>
+                <span class="skill-desc">Clarity, sophistication and cohesion of writing at sentence and paragraph level</span>
+              </div>
+            </label>
+            <label class="skill-checkbox">
+              <input type="checkbox" name="skill" value="general" />
+              <span class="skill-checkbox-ui"></span>
+              <div class="skill-info">
+                <span class="skill-name">General feedback</span>
+                <span class="skill-desc">Overall impressions and the most impactful improvements</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- English ATAR Skills -->
+          <div class="skills-list" id="skills-list-english">
+            <label class="skill-checkbox">
+              <input type="checkbox" name="skill" value="engagement_task" />
+              <span class="skill-checkbox-ui"></span>
+              <div class="skill-info">
+                <span class="skill-name">Engagement with the question / task</span>
+                <span class="skill-desc">How directly and purposefully you address the task</span>
+              </div>
+            </label>
+            <label class="skill-checkbox">
+              <input type="checkbox" name="skill" value="language_features" />
+              <span class="skill-checkbox-ui"></span>
+              <div class="skill-info">
+                <span class="skill-name">Language features & techniques</span>
+                <span class="skill-desc">Deliberate use and identification of stylistic and language devices</span>
+              </div>
+            </label>
+            <label class="skill-checkbox">
+              <input type="checkbox" name="skill" value="structure_org" />
+              <span class="skill-checkbox-ui"></span>
+              <div class="skill-info">
+                <span class="skill-name">Structure & organisation</span>
+                <span class="skill-desc">How effectively your response is sequenced and cohesive</span>
+              </div>
+            </label>
+            <label class="skill-checkbox">
+              <input type="checkbox" name="skill" value="sophistication_eng" />
+              <span class="skill-checkbox-ui"></span>
+              <div class="skill-info">
+                <span class="skill-name">Sophistication of ideas</span>
+                <span class="skill-desc">Depth, complexity and originality of your thinking</span>
+              </div>
+            </label>
+            <label class="skill-checkbox">
+              <input type="checkbox" name="skill" value="evidence_eng" />
+              <span class="skill-checkbox-ui"></span>
+              <div class="skill-info">
+                <span class="skill-name">Use of evidence / reference to text</span>
+                <span class="skill-desc">Accurate and purposeful use of textual support</span>
+              </div>
+            </label>
+            <label class="skill-checkbox">
+              <input type="checkbox" name="skill" value="expression_eng" />
+              <span class="skill-checkbox-ui"></span>
+              <div class="skill-info">
+                <span class="skill-name">Expression & style</span>
+                <span class="skill-desc">Quality and appropriateness of your written voice</span>
+              </div>
+            </label>
+            <label class="skill-checkbox">
+              <input type="checkbox" name="skill" value="general_eng" />
+              <span class="skill-checkbox-ui"></span>
+              <div class="skill-info">
+                <span class="skill-name">General feedback</span>
+                <span class="skill-desc">Overall impressions and the most impactful improvements</span>
+              </div>
+            </label>
+          </div>
+
+          <div class="skills-panel-footer">
+            <button class="btn btn-ghost btn-sm" id="skills-cancel" type="button">Cancel</button>
+            <button class="btn btn-primary" id="skills-analyse" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Analyse
+            </button>
+          </div>
+
+        </div>
+      </aside>
+
+      <!-- AI Inline Suggestion Overlay -->
+      <div class="suggestion-overlay" id="suggestion-overlay" aria-live="polite">
+        <!-- Populated by JS — suggestion cards appear here positioned near selection -->
+      </div>
+
+    </div>
+    <!-- /screen-editor -->
+
+
+    <!-- ============================================================
+         SCREEN: END OF SESSION
+         id="screen-end"
+    ============================================================ -->
+    <div class="screen" id="screen-end">
+      <div class="end-container">
+
+        <div class="end-header">
+          <div class="end-glyph" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <h2 class="end-title">Session Complete</h2>
+          <div class="end-stats">
+            <div class="end-stat">
+              <span class="end-stat-value" id="end-word-count">—</span>
+              <span class="end-stat-label">words written</span>
+            </div>
+            <div class="end-stat-divider" aria-hidden="true"></div>
+            <div class="end-stat">
+              <span class="end-stat-value" id="end-time-taken">—</span>
+              <span class="end-stat-label">time taken</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="end-actions">
+          <button class="end-action-card end-action-card--primary" id="mark-response-btn" type="button">
+            <div class="end-action-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </div>
+            <div class="end-action-body">
+              <h3 class="end-action-title">Mark My Response</h3>
+              <p class="end-action-desc">
+                Receive WACE-style marking against the official criteria.
+                Brutal. Honest. Descriptor-based.
+              </p>
+            </div>
+            <div class="end-action-arrow" aria-hidden="true">→</div>
+          </button>
+
+          <button class="end-action-card" id="download-exit-btn" type="button">
+            <div class="end-action-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <div class="end-action-body">
+              <h3 class="end-action-title">Download & Exit</h3>
+              <p class="end-action-desc">Save your response as a .txt file and return to the start.</p>
+            </div>
+            <div class="end-action-arrow" aria-hidden="true">→</div>
+          </button>
+
+          <button class="end-action-card" id="new-session-btn" type="button">
+            <div class="end-action-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </div>
+            <div class="end-action-body">
+              <h3 class="end-action-title">New Session</h3>
+              <p class="end-action-desc">Start a fresh practice session with a new question.</p>
+            </div>
+            <div class="end-action-arrow" aria-hidden="true">→</div>
+          </button>
+        </div>
+
+      </div>
+    </div>
+    <!-- /screen-end -->
+
+
+    <!-- ============================================================
+         SCREEN: RESULTS / MARKING
+         id="screen-results"
+    ============================================================ -->
+    <div class="screen" id="screen-results">
+      <div class="results-container">
+
+        <header class="results-header">
+          <div class="results-header-top">
+            <div class="screen-brand-small">
+              <span class="brand-mark-small">S</span>
+              <span class="brand-name-small">ScriptSense</span>
+            </div>
+            <div class="results-generating" id="results-generating">
+              <div class="generating-spinner" aria-hidden="true"></div>
+              <span>Marking your response...</span>
+            </div>
+          </div>
+
+          <div class="results-score-block" id="results-score-block">
+            <div class="results-score-total">
+              <span class="results-score-value" id="results-score-value">—</span>
+              <span class="results-score-denom" id="results-score-denom">/ 40</span>
+            </div>
+            <div class="results-descriptor-badge" id="results-descriptor-badge">—</div>
+            <div class="results-meta">
+              <span id="results-course-label">Literature ATAR</span>
+              <span class="results-meta-sep" aria-hidden="true">·</span>
+              <span id="results-task-label">Task 3</span>
+            </div>
+          </div>
+        </header>
+
+        <div class="results-body" id="results-body">
+
+          <!-- Criterion Cards -->
+          <section class="results-criteria" id="results-criteria">
+            <h3 class="results-section-title">Criterion by Criterion</h3>
+            <div class="criteria-list" id="criteria-list">
+              <!-- Populated by JS. Template below for reference: -->
+              <!--
+              <details class="criterion-card">
+                <summary class="criterion-card-summary">
+                  <div class="criterion-summary-left">
+                    <span class="criterion-name">Understanding and knowledge of text</span>
+                    <span class="criterion-descriptor">Proficient</span>
+                  </div>
+                  <div class="criterion-summary-right">
+                    <span class="criterion-score">12 / 15</span>
+                    <svg class="icon icon-chevron" ...></svg>
+                  </div>
+                </summary>
+                <div class="criterion-card-body">
+                  <p class="criterion-comment"></p>
+                  <blockquote class="criterion-evidence"></blockquote>
+                </div>
+              </details>
+              -->
+            </div>
+          </section>
+
+          <!-- Overall Examiner Comment -->
+          <section class="results-overall" id="results-overall">
+            <h3 class="results-section-title">Examiner's Comment</h3>
+            <div class="examiner-comment" id="examiner-comment"></div>
+          </section>
+
+          <!-- Top Band Comparison -->
+          <section class="results-topband" id="results-topband">
+            <div class="topband-prompt-wrap" id="topband-prompt-wrap">
+              <p class="topband-prompt-text">Want to see what a top-band response to this question looks like?</p>
+              <button class="btn btn-primary" id="topband-generate-btn" type="button">
+                Show me a top-band example
+              </button>
+            </div>
+            <div class="topband-content" id="topband-content">
+              <h3 class="results-section-title">Top-Band Response Example</h3>
+              <div class="topband-generating" id="topband-generating">
+                <div class="generating-spinner" aria-hidden="true"></div>
+                <span>Generating top-band example...</span>
+              </div>
+              <div class="topband-text" id="topband-text"></div>
+              <div class="topband-annotations" id="topband-annotations"></div>
+            </div>
+          </section>
+
+          <!-- Results Actions -->
+          <div class="results-actions">
+            <button class="btn btn-ghost" id="results-download-btn" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Download full report
+            </button>
+            <button class="btn btn-primary" id="results-new-session-btn" type="button">
+              New Session →
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+    <!-- /screen-results -->
+
+  </div>
+  <!-- /app -->
+
+
+  <!-- ============================================================
+       MODAL: LITERATURE TEXT & QUOTES SETUP
+       id="modal-text-setup"
+  ============================================================ -->
+  <div class="modal-overlay" id="modal-text-setup" aria-modal="true" role="dialog" aria-labelledby="text-setup-title" aria-hidden="true">
+    <div class="modal">
+
+      <div class="modal-header">
+        <div class="modal-step-indicator">
+          <span class="modal-step active" data-step="1"></span>
+          <span class="modal-step" data-step="2"></span>
+        </div>
+        <h2 class="modal-title" id="text-setup-title">Tell us about your text</h2>
+        <p class="modal-sub">This helps the AI give feedback specific to your studied work.</p>
+      </div>
+
+      <!-- Step 1: Text Details -->
+      <div class="modal-step-content active" id="text-setup-step1">
+        <div class="modal-fields">
+
+          <div class="field-group">
+            <label class="field-label" for="text-title-input">Text Title</label>
+            <input
+              type="text"
+              id="text-title-input"
+              class="field-input"
+              placeholder="e.g. One Hundred Years of Solitude"
+              autocomplete="off"
+            />
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="text-author-input">Author / Director</label>
+            <input
+              type="text"
+              id="text-author-input"
+              class="field-input"
+              placeholder="e.g. Gabriel García Márquez"
+              autocomplete="off"
+            />
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="text-type-select">Text Type</label>
+            <div class="select-wrap">
+              <select id="text-type-select" class="field-select">
+                <option value="" disabled selected>Select text type</option>
+                <option value="novel">Novel</option>
+                <option value="play">Play</option>
+                <option value="poetry_collection">Poetry Collection</option>
+                <option value="film">Film</option>
+                <option value="short_stories">Short Story Collection</option>
+                <option value="other">Other</option>
+              </select>
+              <svg class="select-arrow icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-primary btn-full" id="text-setup-next" type="button">
+            Next: Add Quotes →
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: Quote Bank -->
+      <div class="modal-step-content" id="text-setup-step2">
+        <div class="modal-fields">
+
+          <div class="field-group">
+            <label class="field-label" for="quotes-bulk-input">
+              Quote Bank
+              <span class="field-label-hint">One quote per line. Optionally tag with a colon: <em>quote : theme</em></span>
+            </label>
+            <textarea
+              id="quotes-bulk-input"
+              class="field-textarea"
+              rows="8"
+              placeholder="'It was as if God had decided to put to the test every capacity for surprise...' : magical realism&#10;'Many years later, as he faced the firing squad...' : opening, memory&#10;Add more quotes below..."
+              spellcheck="false"
+            ></textarea>
+          </div>
+
+          <!-- Individual quote rows -->
+          <div class="quotes-rows" id="quotes-rows">
+            <!-- Dynamically added structured quote rows go here -->
+          </div>
+
+          <button class="btn btn-ghost btn-sm btn-add-quote" id="add-quote-row" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add a quote individually
+          </button>
+
+          <p class="field-hint quotes-persist-note">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Your quotes are saved in this browser and will be available next time you open ScriptSense.
+          </p>
+
+        </div>
+
+        <div class="modal-footer modal-footer--row">
+          <button class="btn btn-ghost" id="text-setup-back" type="button">← Back</button>
+          <button class="btn btn-primary" id="text-setup-save" type="button">
+            Save & Continue →
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <!-- /modal-text-setup -->
+
+
+  <!-- ============================================================
+       MODAL: CONFIRM END SESSION
+       id="modal-confirm-end"
+  ============================================================ -->
+  <div class="modal-overlay modal-overlay--sm" id="modal-confirm-end" aria-modal="true" role="dialog" aria-labelledby="confirm-end-title" aria-hidden="true">
+    <div class="modal modal--sm">
+      <h2 class="modal-title" id="confirm-end-title">End this session?</h2>
+      <p class="modal-sub">Your draft will be saved. You can mark your response on the next screen.</p>
+      <div class="modal-footer modal-footer--row">
+        <button class="btn btn-ghost" id="confirm-end-cancel" type="button">Keep writing</button>
+        <button class="btn btn-primary" id="confirm-end-confirm" type="button">End session</button>
+      </div>
+    </div>
+  </div>
+  <!-- /modal-confirm-end -->
+
+
+  <!-- ============================================================
+       TOAST NOTIFICATION
+       id="toast"
+  ============================================================ -->
+  <div class="toast" id="toast" role="alert" aria-live="assertive" aria-hidden="true">
+    <svg class="icon toast-icon" id="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"></svg>
+    <span class="toast-text" id="toast-text"></span>
+  </div>
+
+
+  <!-- ============================================================
+       SCRIPTS
+  ============================================================ -->
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>
