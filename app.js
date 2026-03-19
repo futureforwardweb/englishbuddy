@@ -39,6 +39,8 @@ const STATE = {
   tryAgainData: null,
   scaffoldData: null,
   markedData: null,
+  customQuestion: null,
+  examinerMode: false,
 };
 
 /* ============================================================
@@ -173,6 +175,9 @@ async function callGeminiRewrite(selectedText, skillLabel, confidence) {
     ? 'The student has medium confidence here.'
     : 'The student marked high confidence — be direct and rigorous.';
 
+  const examinerCtx    = getExaminerModeInstruction();
+  const ratingAdjust   = getRatingAdjustment(skillLabel);
+
   const prompt = `You are a WACE writing coach. Rewrite ONLY the following highlighted text to improve its ${skillLabel}.
 
 RULES:
@@ -180,6 +185,7 @@ RULES:
 - Keep the rewrite approximately the same length as the original.
 - Do not rewrite content outside what is quoted below.
 - ${confidenceCtx}
+${examinerCtx}${ratingAdjust}
 
 ORIGINAL TEXT: "${selectedText}"
 
@@ -195,6 +201,9 @@ async function callGeminiAssessment(selectedText, rewrite, skillLabel, confidenc
     ? 'The student marked high confidence — be direct about what is actually weak.'
     : '';
 
+  const examinerCtx  = getExaminerModeInstruction();
+  const ratingAdjust = getRatingAdjustment(skillLabel);
+
   const prompt = `You are a WACE writing coach providing assessment feedback.
 
 SKILL BEING ASSESSED: ${skillLabel}
@@ -202,6 +211,7 @@ QUESTION: ${question || 'Free writing'}
 STUDENT\'S ORIGINAL TEXT: "${selectedText}"
 SUGGESTED REWRITE: "${rewrite}"
 ${confidenceCtx}
+${examinerCtx}${ratingAdjust}
 
 In 2-3 sentences only:
 1. What specifically is weak in the original
@@ -641,6 +651,14 @@ function setQuestionGenerating(loading) {
 
 // Generate question silently (no UI update) for reading time pre-load
 async function generateQuestionQuietly() {
+  // Use custom question if the student provided one
+  if (STATE.customQuestion) {
+    STATE.currentQuestion = STATE.customQuestion;
+    STATE.customQuestion  = null; // consume it
+    const textEl = $('question-text');
+    if (textEl) textEl.textContent = STATE.currentQuestion;
+    return;
+  }
   const pastQs = LITERATURE_PAST_QUESTIONS.map(q => `${q.year} Q${q.question_number}: ${q.text}`).join('\n');
   const concepts = LITERATURE_SYLLABUS_CONCEPTS.map(c => `• ${c.concept}`).join('\n');
   const isEnglish = STATE.course === 'english';
@@ -1284,6 +1302,9 @@ function initEditorEvents() {
   initSynonymUpgrader();
   initVersionRestore();
   initQuoteTracker();
+  initExaminerMode();
+  initIntroCheck();
+  initSentenceVarietyAnalyser();
 }
 
 function handleTextSelection() {
@@ -1430,6 +1451,9 @@ function displayInlineSuggestion(originalText, rewrite, skillLabel) {
   overlay.appendChild(card);
   const rewriteEl = card.querySelector('#sc-rewrite-text');
   if (rewriteEl) streamText(rewriteEl, rewrite, 32);
+
+  // Add feedback rating row to the card
+  addFeedbackRating(card, skillLabel);
 }
 
 function replaceSelectedText(newText) {
@@ -2134,6 +2158,8 @@ function resetToStart() {
   STATE.stopwatchSeconds = 0;
   STATE.confidence = 'high';
   STATE.readingTimeEnabled = false;
+  STATE.customQuestion = null;
+  STATE.examinerMode   = false;
 
   const area = $('writing-area');
   if (area) area.innerText = '';
@@ -2185,6 +2211,16 @@ function resetToStart() {
   if (vocabSection) vocabSection.style.display = 'none';
   // Remove pressure classes from writing area (area already declared above)
   $('writing-area')?.classList.remove('pressure-low', 'pressure-mid', 'pressure-high');
+  // Reset examiner mode
+  STATE.examinerMode = false;
+  $('examiner-mode-toggle')?.classList.remove('active');
+  $('skills-panel')?.classList.remove('examiner-active');
+  // Hide sentence variety bar
+  const svBar = $('sentence-variety-bar');
+  if (svBar) svBar.style.display = 'none';
+  // Hide intro check button
+  const introBtn = $('intro-check-btn');
+  if (introBtn) introBtn.style.display = 'none';
 
   showScreen('screen-course');
   renderSessionHistory();
@@ -2487,6 +2523,422 @@ function initVersionRestore() {
 }
 
 /* ============================================================
+   43. INTRODUCTION QUALITY CHECK
+   ============================================================ */
+function initIntroCheck() {
+  const btn = $('intro-check-btn');
+  if (!btn) return;
+
+  // Show button once 80+ words written
+  const observer = new MutationObserver(() => {
+    const words = getWordCount($('writing-area')?.innerText || '');
+    btn.style.display = words >= 80 ? '' : 'none';
+  });
+  const area = $('writing-area');
+  if (area) observer.observe(area, { childList: true, subtree: true, characterData: true });
+
+  btn.addEventListener('click', async () => {
+    const area = $('writing-area');
+    if (!area) return;
+
+    // Grab first paragraph (up to first double newline or 600 chars)
+    const full = area.innerText || '';
+    const firstPara = full.split(/\n\n/)[0]?.slice(0, 600) || full.slice(0, 600);
+
+    if (!firstPara.trim()) { showToast('Write your introduction first.', 'error'); return; }
+
+    setBtnLoading(btn, true);
+    try {
+      const prompt = `You are a WACE ${STATE.course === 'literature' ? 'English Literature ATAR' : 'English ATAR'} examiner.
+A student has written the following introduction:
+
+"${firstPara}"
+
+The question is: ${STATE.currentQuestion || '(no question — free writing)'}
+
+Assess ONLY these three things, each on a new line:
+TASK WORDS: [Y/N] — Does the introduction directly engage with the exact task words in the question? (one sentence explanation)
+ARGUMENT DIRECTION: [Y/N] — Does it signal the direction of the student's argument? (one sentence explanation)
+CONTEXT AWARENESS: [Y/N] — Does it demonstrate awareness of the text/context/author's purpose? (one sentence explanation)
+
+Be blunt. Y only if clearly achieved.`;
+
+      const result = await callGemini(prompt, null, 300);
+      showFeedbackWidget('Introduction Check', result);
+    } catch (err) {
+      showToast(`Intro check failed: ${err.message}`, 'error');
+    } finally {
+      setBtnLoading(btn, false);
+    }
+  });
+}
+
+/* ============================================================
+   44. SENTENCE VARIETY ANALYSER
+   ============================================================ */
+let _varietyTimeout = null;
+
+function initSentenceVarietyAnalyser() {
+  const area = $('writing-area');
+  if (!area) return;
+  area.addEventListener('input', () => {
+    clearTimeout(_varietyTimeout);
+    _varietyTimeout = setTimeout(() => runSentenceVarietyCheck(area.innerText), 1500);
+  });
+}
+
+function runSentenceVarietyCheck(text) {
+  const bar  = $('sentence-variety-bar');
+  const msg  = $('sentence-variety-text');
+  if (!bar || !msg) return;
+
+  const sentences = text.match(/[^.!?]+[.!?]+/g)?.map(s => s.trim()) || [];
+  if (sentences.length < 4) { bar.style.display = 'none'; return; }
+
+  // Check 1: sentences starting with "The" or a proper noun (rough Subject-Verb-Object proxy)
+  const svoStarters = sentences.filter(s => /^(The |It |He |She |They |This |That |García |Orwell|[A-Z][a-z]+\s)/.test(s));
+  const svoPct = svoStarters.length / sentences.length;
+
+  // Check 2: all sentences similar length (monotonous rhythm)
+  const lengths = sentences.map(s => s.split(/\s+/).length);
+  const avgLen  = lengths.reduce((a, b) => a + b, 0) / lengths.length;
+  const variance = lengths.reduce((acc, l) => acc + Math.pow(l - avgLen, 2), 0) / lengths.length;
+  const isMonotonous = variance < 12 && sentences.length >= 5;
+
+  bar.style.display = 'flex';
+
+  if (svoPct > 0.6 && sentences.length >= 5) {
+    bar.className = 'sentence-variety-bar';
+    msg.textContent = `${Math.round(svoPct * 100)}% of sentences start the same way — try opening with a clause, quotation, or prepositional phrase.`;
+  } else if (isMonotonous) {
+    bar.className = 'sentence-variety-bar';
+    msg.textContent = 'Sentences are similar in length — vary rhythm with short punchy claims and longer analytical sentences.';
+  } else {
+    bar.className = 'sentence-variety-bar ok';
+    msg.textContent = 'Good sentence variety — openings and lengths are well mixed.';
+    setTimeout(() => { bar.style.display = 'none'; }, 4000);
+  }
+}
+
+/* ============================================================
+   49. FEEDBACK RATING
+   ============================================================ */
+function addFeedbackRating(card, skillLabel) {
+  const ratingRow = document.createElement('div');
+  ratingRow.className = 'suggestion-card-rating';
+  ratingRow.innerHTML = `
+    <span class="suggestion-card-rating-label">Was this helpful?</span>
+    <button class="rating-btn" data-rating="up" title="Helpful">👍</button>
+    <button class="rating-btn" data-rating="down" title="Not helpful">👎</button>`;
+
+  ratingRow.querySelectorAll('.rating-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      ratingRow.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      saveFeedbackRating(skillLabel, btn.dataset.rating === 'up');
+      setTimeout(() => ratingRow.innerHTML = '<span class="suggestion-card-rating-label" style="color:rgba(255,255,255,0.4)">Thanks for the feedback</span>', 800);
+    });
+  });
+
+  card.appendChild(ratingRow);
+}
+
+function saveFeedbackRating(skill, positive) {
+  try {
+    const key  = 'scriptsense_ratings';
+    const data = JSON.parse(localStorage.getItem(key) || '{}');
+    if (!data[skill]) data[skill] = { up: 0, down: 0 };
+    data[skill][positive ? 'up' : 'down']++;
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch(e) {}
+}
+
+function getRatingAdjustment(skill) {
+  // Returns a string to append to the prompt if a skill is consistently rated down
+  try {
+    const data = JSON.parse(localStorage.getItem('scriptsense_ratings') || '{}');
+    const r = data[skill];
+    if (!r) return '';
+    const total = r.up + r.down;
+    if (total >= 5 && r.down / total > 0.6) {
+      return '\nIMPORTANT: Previous feedback on this skill has been rated unhelpful. Be MORE SPECIFIC — quote exact words from the student\'s text, avoid generic advice, give a concrete rewrite that differs meaningfully from the original.';
+    }
+    return '';
+  } catch(e) { return ''; }
+}
+
+/* ============================================================
+   50. EXAMINER VOICE MODE
+   ============================================================ */
+function initExaminerMode() {
+  const toggle = $('examiner-mode-toggle');
+  if (!toggle) return;
+  STATE.examinerMode = false;
+
+  toggle.addEventListener('click', () => {
+    STATE.examinerMode = !STATE.examinerMode;
+    toggle.classList.toggle('active', STATE.examinerMode);
+    toggle.setAttribute('aria-pressed', String(STATE.examinerMode));
+    $('skills-panel')?.classList.toggle('examiner-active', STATE.examinerMode);
+    showToast(STATE.examinerMode ? 'Examiner voice on — brutal and direct.' : 'Back to coach mode.', 'info');
+  });
+}
+
+function getExaminerModeInstruction() {
+  if (!STATE.examinerMode) return '';
+  return `\nVOICE MODE: EXAMINER — You are a WACE external examiner reading this script for the first time. Write exactly as you would write a marginal note on an exam script. No encouragement. No softening. Name the problem precisely and state what would need to change for a higher band. One line maximum per section.`;
+}
+
+/* ============================================================
+   52. CUSTOM QUESTION INPUT
+   ============================================================ */
+function initCustomQuestionInput() {
+  const toggleBtn = $('custom-question-toggle');
+  const body      = $('custom-question-body');
+  const useBtn    = $('custom-question-use-btn');
+  const input     = $('custom-question-input');
+  if (!toggleBtn || !body) return;
+
+  toggleBtn.addEventListener('click', () => {
+    const isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : '';
+    toggleBtn.querySelector('.icon')?.style && (toggleBtn.querySelector('.icon').style.transform = isOpen ? '' : 'rotate(45deg)');
+  });
+
+  useBtn?.addEventListener('click', () => {
+    const q = input?.value?.trim();
+    if (!q) { showToast('Please enter a question first.', 'error'); return; }
+    STATE.customQuestion = q;
+    // Visual confirmation
+    const icon = toggleBtn.querySelector('.icon');
+    if (icon) icon.style.transform = '';
+    body.style.display = 'none';
+    toggleBtn.textContent = '';
+    toggleBtn.innerHTML = `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--sage)"><polyline points="20 6 9 17 4 12"/></svg> Custom question set`;
+    showToast('Custom question saved — select a mode to begin.', 'success');
+  });
+}
+
+/* ============================================================
+   54. WEEK SUMMARY
+   ============================================================ */
+function initWeekSummary() {
+  $('week-summary-btn')?.addEventListener('click', generateWeekSummary);
+  $('week-summary-close')?.addEventListener('click', () => closeModal('modal-week-summary'));
+}
+
+async function generateWeekSummary() {
+  const history = loadSessionHistory();
+  if (history.length < 2) {
+    showToast('Complete at least 2 marked sessions first.', 'info');
+    return;
+  }
+
+  openModal('modal-week-summary');
+  $('week-summary-generating').style.display = 'flex';
+  $('week-summary-content').style.display = 'none';
+
+  // Filter to last 7 days
+  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const recent = history.filter(s => {
+    // Parse the au date string back
+    const parts = (s.date || '').split('/');
+    if (parts.length === 3) {
+      const d = new Date(`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`);
+      return d.getTime() >= oneWeekAgo;
+    }
+    return true; // include if can't parse
+  });
+
+  const sessions = recent.length >= 2 ? recent : history.slice(0, 5);
+
+  const sessionSummary = sessions.map((s, i) =>
+    `Session ${i + 1} (${s.date}): ${s.course === 'literature' ? 'Literature ATAR' : 'English ATAR'} — ${s.total_score}/${s.total_max} (${s.descriptor_level || '?'}). Q: ${s.question?.slice(0, 60) || 'free writing'}...` +
+    (s.criteria_scores?.length ? '\n  Criteria: ' + s.criteria_scores.map(c => `${c.name.split(' ')[0]}: ${c.score}/${c.max}`).join(', ') : '')
+  ).join('\n\n');
+
+  const prompt = `You are a WACE English teacher writing a brief weekly progress note for a Year 12 student.
+
+Here are their recent ScriptSense practice sessions:
+
+${sessionSummary}
+
+Write a 3-4 sentence weekly summary that:
+1. Identifies what is clearly improving (cite specific criteria scores)
+2. Identifies what is stagnant or dropping (be honest and specific)
+3. Recommends one concrete focus for next week's sessions
+
+Write in a direct, supportive teacher register. No bullet points. Plain prose only. Do not pad with generic encouragement.`;
+
+  try {
+    const result = await callGemini(prompt, null, 400);
+    $('week-summary-generating').style.display = 'none';
+    $('week-summary-content').style.display = '';
+    $('week-summary-text').textContent = result;
+  } catch(err) {
+    $('week-summary-generating').innerHTML = `<span style="color:var(--danger)">Could not generate summary: ${err.message}</span>`;
+  }
+}
+
+/* ============================================================
+   56. ONBOARDING WALKTHROUGH
+   ============================================================ */
+const ONBOARDING_STEPS = [
+  {
+    title: 'Welcome to ScriptSense',
+    body: 'ScriptSense is your WACE ATAR English writing practice tool. <strong>AI generates exam questions, gives targeted feedback on your writing, and marks your response exactly like a WACE examiner would.</strong> This quick tour will show you around.',
+    icon: '✍️',
+    target: null,      // no spotlight — full-screen intro card
+    cardPos: 'center'
+  },
+  {
+    title: 'Choose your course & mode',
+    body: 'Select <strong>English Literature ATAR</strong> or <strong>English ATAR</strong>, then pick a mode. <strong>Practice Question</strong> generates an exam question and counts down. <strong>Free Writing</strong> gives you an open stopwatch. <strong>Scaffolded</strong> adds analytical hints alongside the question.',
+    icon: '📚',
+    target: '#screen-course',
+    cardPos: 'center'
+  },
+  {
+    title: 'Get AI help while you write',
+    body: 'Inside the editor, <strong>highlight any sentence</strong> you want improved, then click <strong>"Get AI Help"</strong>. Choose which skill you want help with — engagement, evidence, terminology — and get a rewritten suggestion instantly. <strong>Double-click any word</strong> for a synonym upgrade.',
+    icon: '🤖',
+    target: null,
+    cardPos: 'center'
+  },
+  {
+    title: 'Get marked like a real WACE examiner',
+    body: 'When your time is up, click <strong>"Mark My Response"</strong>. You\'ll receive a mark out of the actual WACE total, criterion-by-criterion feedback with direct quotes from your response, and an overall examiner comment. <strong>No charity. No padding. Exactly what you\'d get in the real exam.</strong>',
+    icon: '📝',
+    target: null,
+    cardPos: 'center'
+  },
+  {
+    title: 'Tools at your fingertips',
+    body: 'The bottom bar has everything you need mid-session: <strong>Counter</strong> generates a counter-argument, <strong>Quotes</strong> inserts from your quote bank, <strong>Terms</strong> opens a full terminology bank. Press <strong>?</strong> anytime to see all keyboard shortcuts. Your draft is saved automatically every 30 seconds.',
+    icon: '⚡',
+    target: null,
+    cardPos: 'center'
+  }
+];
+
+let _onboardingStep = 0;
+
+function initOnboarding() {
+  // Check if first time
+  try {
+    if (localStorage.getItem('scriptsense_onboarded')) return;
+  } catch(e) {}
+
+  // Small delay so the page settles first
+  setTimeout(startOnboarding, 600);
+}
+
+function startOnboarding() {
+  const overlay = $('onboarding-overlay');
+  if (!overlay) return;
+
+  _onboardingStep = 0;
+  overlay.classList.add('active');
+  overlay.setAttribute('aria-hidden', 'false');
+  renderOnboardingStep(_onboardingStep);
+
+  $('onboarding-next')?.addEventListener('click', advanceOnboarding);
+  $('onboarding-skip')?.addEventListener('click', finishOnboarding);
+}
+
+function renderOnboardingStep(stepIdx) {
+  const step      = ONBOARDING_STEPS[stepIdx];
+  const total     = ONBOARDING_STEPS.length;
+  const overlay   = $('onboarding-overlay');
+  const spotlight = $('onboarding-spotlight');
+  const card      = $('onboarding-card');
+  const progressBar = $('onboarding-progress-bar');
+
+  if (!step || !card) return;
+
+  // Update progress
+  if (progressBar) progressBar.style.width = `${((stepIdx + 1) / total) * 100}%`;
+  if ($('onboarding-step-count')) $('onboarding-step-count').textContent = `${stepIdx + 1} / ${total}`;
+
+  // Update content
+  if ($('onboarding-icon'))  $('onboarding-icon').textContent  = step.icon;
+  if ($('onboarding-title')) $('onboarding-title').textContent = step.title;
+  if ($('onboarding-body'))  $('onboarding-body').innerHTML    = step.body;
+
+  // Update next button label on last step
+  const nextBtn = $('onboarding-next');
+  if (nextBtn) nextBtn.textContent = stepIdx === total - 1 ? "Let's go! →" : 'Next →';
+
+  // Spotlight target element
+  if (step.target) {
+    const targetEl = document.querySelector(step.target);
+    if (targetEl && spotlight) {
+      const rect = targetEl.getBoundingClientRect();
+      const pad  = 8;
+      spotlight.style.display = 'block';
+      spotlight.style.top     = `${rect.top - pad}px`;
+      spotlight.style.left    = `${rect.left - pad}px`;
+      spotlight.style.width   = `${rect.width + pad * 2}px`;
+      spotlight.style.height  = `${rect.height + pad * 2}px`;
+    }
+  } else {
+    if (spotlight) spotlight.style.display = 'none';
+  }
+
+  // Position card
+  if (step.cardPos === 'center') {
+    card.style.top       = '50%';
+    card.style.left      = '50%';
+    card.style.transform = 'translate(-50%, -50%)';
+    card.style.bottom    = 'auto';
+    card.style.right     = 'auto';
+  }
+
+  // Animate card in
+  card.style.opacity = '0';
+  card.style.transform = 'translate(-50%, calc(-50% + 12px))';
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      card.style.transition = 'opacity 0.28s ease, transform 0.28s ease';
+      card.style.opacity = '1';
+      card.style.transform = 'translate(-50%, -50%)';
+    });
+  });
+}
+
+function advanceOnboarding() {
+  _onboardingStep++;
+  if (_onboardingStep >= ONBOARDING_STEPS.length) {
+    finishOnboarding();
+  } else {
+    renderOnboardingStep(_onboardingStep);
+  }
+}
+
+function finishOnboarding() {
+  const overlay = $('onboarding-overlay');
+  if (overlay) {
+    overlay.style.opacity = '0';
+    overlay.style.transition = 'opacity 0.3s ease';
+    setTimeout(() => {
+      overlay.classList.remove('active');
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.style.opacity = '';
+      overlay.style.transition = '';
+    }, 320);
+  }
+  try { localStorage.setItem('scriptsense_onboarded', '1'); } catch(e) {}
+}
+
+/* ============================================================
+   58. KEYBOARD SHORTCUTS MODAL
+   ============================================================ */
+function initShortcutsModal() {
+  $('shortcuts-btn')?.addEventListener('click', () => openModal('modal-shortcuts'));
+  $('shortcuts-close')?.addEventListener('click', () => closeModal('modal-shortcuts'));
+}
+
+/* ============================================================
    35. KEYBOARD SHORTCUTS
    ============================================================ */
 function initKeyboardShortcuts() {
@@ -2494,6 +2946,8 @@ function initKeyboardShortcuts() {
     if (e.key === 'Escape') {
       closeSkillsPanel();
       closeModal('modal-confirm-end');
+      closeModal('modal-shortcuts');
+      closeModal('modal-week-summary');
       $('ai-toolbar')?.classList.remove('visible');
       hideFeedbackWidget();
       $('terminology-drawer')?.classList.remove('open');
@@ -2518,6 +2972,11 @@ function initKeyboardShortcuts() {
       }
     }
 
+    // ? — open shortcuts
+    if (e.key === '?' && !e.ctrlKey && !e.metaKey && document.activeElement?.id !== 'writing-area') {
+      openModal('modal-shortcuts');
+    }
+
     // Ctrl/Cmd+Shift+T — toggle terminology bank
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 't') {
       e.preventDefault();
@@ -2537,6 +2996,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initTimerSelect();
   initKeyboardShortcuts();
   initConfidenceRating();
+  initCustomQuestionInput();
+  initWeekSummary();
+  initShortcutsModal();
+  initOnboarding();
 
   // Results screen listeners
   $('results-new-session-btn')?.addEventListener('click', resetToStart);
