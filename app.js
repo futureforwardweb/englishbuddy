@@ -31,7 +31,7 @@ const STATE = {
   confidence: 'high',
   argumentMap: null,
   sessionGoal: null,
-  readingTimeEnabled: true,
+  readingTimeEnabled: false,   // off by default — user enables in mode select
   readingTimeActive: false,
   readingTimeInterval: null,
   readingTimeSeconds: 0,
@@ -543,96 +543,100 @@ function initTimerSelect() {
    11. SESSION START
    ============================================================ */
 async function startSession() {
-  STATE.sessionEnded = false;
-  STATE.questionLocked = false;
+  STATE.sessionEnded     = false;
+  STATE.questionLocked   = false;
   STATE.questionRegenCount = 0;
   STATE.sessionStartTime = Date.now();
-  STATE.tryAgainData = null;
+  STATE.tryAgainData     = null;
+  STATE.currentQuestion  = null;
+  STATE.scaffoldData     = null;
 
+  // ── Show editor screen immediately so there's never a blank ──
   updateEditorBadges();
   showScreen('screen-editor');
+  initEditorEvents();
+  updateWordCount();
+  initComplexityAnalyser();
+  showArgumentMapperTab();
 
   // Hide/show quote bank button
   const qbBtn = $('quote-bank-btn');
   if (qbBtn) qbBtn.style.display = STATE.course === 'literature' ? '' : 'none';
 
-  $('question-header')?.classList.remove('visible');
-  $('stimulus-header')?.classList.remove('visible');
-
-  // Always init editor events and word count first so the screen isn't blank
-  initEditorEvents();
-  updateWordCount();
-  initComplexityAnalyser();
-
+  // ── Free writing — no question needed ────────────────────
   if (STATE.mode === 'freewrite') {
     initStopwatch();
     const draft = loadDraft();
-    const area = $('writing-area');
+    const area  = $('writing-area');
     if (area && draft) area.innerText = draft;
     startFreeWritingReview();
     startAutosave();
-    showArgumentMapperTab();
     return;
   }
 
-  // All timed modes — show question header with spinner immediately
+  // ── All question modes — show question header with spinner ─
   $('question-header')?.classList.add('visible');
-  const genEl = $('question-generating');
-  if (genEl) { genEl.style.display = 'flex'; genEl.innerHTML = '<div class="generating-spinner"></div><span>Generating your question...</span>'; }
-  $('question-content')?.classList.remove('visible');
+  $('stimulus-header')?.classList.remove('visible');
+  setQuestionGenerating(true);
 
-  // Generate question (always await before showing anything)
+  // Generate question
   await generateQuestionQuietly();
 
+  // Special case: English comprehending
   if (STATE.course === 'english' && STATE.section === 'comprehending') {
     $('question-header')?.classList.remove('visible');
     $('stimulus-header')?.classList.add('visible');
+    setQuestionGenerating(false);
     await generateStimulusContent();
-    initCountdown(STATE.timerDuration * 60);
+    initCountdown((STATE.timerDuration || 45) * 60);
     startAutosave();
-    showArgumentMapperTab();
     return;
   }
 
-  // Show question content
-  if (genEl) genEl.style.display = 'none';
+  // Show generated question
+  setQuestionGenerating(false);
   $('question-content')?.classList.add('visible');
   const textEl = $('question-text');
-  if (textEl && STATE.currentQuestion) textEl.textContent = STATE.currentQuestion;
+  if (textEl) textEl.textContent = STATE.currentQuestion || 'Could not generate question — please try again.';
 
-  // Scaffolded — show scaffold panel immediately, no reading time dependency
-  if (STATE.mode === 'scaffolded' && STATE.scaffoldData) {
-    renderScaffoldPanel();
-  }
+  // Scaffold hints panel
+  if (STATE.mode === 'scaffolded' && STATE.scaffoldData) renderScaffoldPanel();
 
-  // Show regen + start buttons unless intro mode (auto-locks)
-  const actionsEl = $('question-actions');
-  if (actionsEl) actionsEl.classList.remove('locked');
-
+  // Intro mode: auto-lock and start timer immediately
   if (STATE.mode === 'intro') {
-    // Intro: auto-lock and start immediately
     STATE.questionLocked = true;
-    actionsEl?.classList.add('locked');
-    initCountdown(STATE.timerDuration * 60);
+    $('question-actions')?.classList.add('locked');
+    initCountdown(8 * 60);
     startAutosave();
     $('writing-area')?.focus();
-    showArgumentMapperTab();
     return;
   }
 
-  // Reading time (practice + scaffolded only, if enabled)
-  if (STATE.readingTimeEnabled) {
-    startReadingTime();
-  } else {
-    // No reading time — show argument mapper then let user click start
-    showArgumentMapper();
-  }
-
-  // Wire up question buttons
+  // Practice / scaffolded: show actions so user can start
+  $('question-actions')?.classList.remove('locked');
   $('question-regenerate')?.addEventListener('click', handleRegenQuestion, { once: true });
   $('question-start')?.addEventListener('click', lockAndStartWriting, { once: true });
 
-  showArgumentMapperTab();
+  // Reading time: show the overlay OVER the visible question
+  // Only if enabled — overlay sits on top, doesn't replace the editor
+  if (STATE.readingTimeEnabled) {
+    startReadingTime();
+  }
+}
+
+// Small helper so spinner state is always consistent
+function setQuestionGenerating(loading) {
+  const genEl     = $('question-generating');
+  const contentEl = $('question-content');
+  if (loading) {
+    if (genEl) {
+      genEl.style.display = 'flex';
+      genEl.innerHTML = '<div class="generating-spinner" aria-hidden="true"></div><span>Generating your question...</span>';
+    }
+    contentEl?.classList.remove('visible');
+  } else {
+    if (genEl) genEl.style.display = 'none';
+  }
 }
 
 // Generate question silently (no UI update) for reading time pre-load
@@ -690,35 +694,56 @@ function updateEditorBadges() {
    ============================================================ */
 function startReadingTime() {
   const overlay = $('reading-time-overlay');
-  const clock   = $('reading-time-clock');
   if (!overlay) return;
 
-  STATE.readingTimeActive = true;
+  STATE.readingTimeActive  = true;
   STATE.readingTimeSeconds = APP_CONFIG.reading_time_seconds || 300;
 
-  overlay.classList.add('visible');
-  overlay.setAttribute('aria-hidden', 'false');
+  // Remove any previously injected question display
+  overlay.querySelectorAll('.rt-question-display').forEach(el => el.remove());
 
-  // Show question in overlay if available
+  // Inject question text into the overlay
   if (STATE.currentQuestion) {
-    const qDisplay = document.createElement('div');
-    qDisplay.style.cssText = 'font-family:var(--font-display);font-style:italic;font-size:1.1rem;color:var(--ink);line-height:1.6;text-align:center;max-width:520px;padding:var(--space-4);background:var(--bg-warm);border-radius:var(--r-xl);border:var(--border-card);';
-    qDisplay.textContent = STATE.currentQuestion;
-    overlay.querySelector('.reading-time-inner')?.insertBefore(qDisplay, overlay.querySelector('.reading-time-notes-wrap'));
+    const inner = overlay.querySelector('.reading-time-inner');
+    if (inner) {
+      const qDisplay = document.createElement('div');
+      qDisplay.className = 'rt-question-display';
+      qDisplay.style.cssText = 'font-family:var(--font-display);font-style:italic;font-size:1.05rem;color:var(--ink);line-height:1.65;text-align:center;max-width:480px;padding:var(--space-4);background:var(--bg-warm);border-radius:var(--r-xl);border:var(--border-card);width:100%;';
+      qDisplay.textContent = STATE.currentQuestion;
+      const notesWrap = inner.querySelector('.reading-time-notes-wrap');
+      notesWrap ? inner.insertBefore(qDisplay, notesWrap) : inner.prepend(qDisplay);
+    }
   }
 
-  if (clock) clock.textContent = formatTime(STATE.readingTimeSeconds);
+  const clock = $('reading-time-clock');
+  if (clock) { clock.textContent = formatTime(STATE.readingTimeSeconds); clock.classList.remove('warning'); }
+
+  // Ensure display:flex then trigger transition
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      overlay.classList.add('visible');
+      overlay.setAttribute('aria-hidden', 'false');
+    });
+  });
 
   STATE.readingTimeInterval = setInterval(() => {
     STATE.readingTimeSeconds--;
-    if (clock) {
-      clock.textContent = formatTime(STATE.readingTimeSeconds);
-      clock.classList.toggle('warning', STATE.readingTimeSeconds <= 60);
+    const c = $('reading-time-clock');
+    if (c) {
+      c.textContent = formatTime(STATE.readingTimeSeconds);
+      c.classList.toggle('warning', STATE.readingTimeSeconds <= 60);
     }
     if (STATE.readingTimeSeconds <= 0) endReadingTime();
   }, 1000);
 
-  $('reading-time-skip')?.addEventListener('click', endReadingTime, { once: true });
+  // Clone skip button to clear old listeners
+  const skipBtn = $('reading-time-skip');
+  if (skipBtn) {
+    const newSkip = skipBtn.cloneNode(true);
+    skipBtn.parentNode?.replaceChild(newSkip, skipBtn);
+    newSkip.addEventListener('click', endReadingTime, { once: true });
+  }
 }
 
 function endReadingTime() {
@@ -726,10 +751,11 @@ function endReadingTime() {
   STATE.readingTimeActive = false;
   const overlay = $('reading-time-overlay');
   overlay?.classList.remove('visible');
-  overlay?.setAttribute('aria-hidden', 'true');
-
-  // Show argument mapper, which then calls afterArgumentMap on close/save
-  showArgumentMapper();
+  // Hide after transition, then show argument mapper
+  setTimeout(() => {
+    if (overlay) overlay.style.display = 'none';
+    showArgumentMapper();
+  }, 280);
 }
 
 /* ============================================================
@@ -2093,7 +2119,7 @@ function resetToStart() {
   STATE.timerSeconds = 0;
   STATE.stopwatchSeconds = 0;
   STATE.confidence = 'high';
-  STATE.readingTimeEnabled = true;
+  STATE.readingTimeEnabled = false;
 
   const area = $('writing-area');
   if (area) area.innerText = '';
