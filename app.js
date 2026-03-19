@@ -350,6 +350,7 @@ function initApiKeyScreen() {
       loadSessionHistory();
       showScreen('screen-course');
       renderSessionHistory();
+      tourTrigger('course_select');
     } catch(err) {
       showApiKeyError(`Invalid key: ${err.message}`);
     } finally {
@@ -373,9 +374,11 @@ function initCourseSelect() {
       if (STATE.course === 'literature') {
         loadSavedQuotes();
         openModal('modal-text-setup');
+        tourTrigger('text_setup');
       } else {
         showScreen('screen-mode');
         updateModeScreen();
+        tourTrigger('mode_select');
       }
     });
   });
@@ -423,6 +426,7 @@ function initTextSetupModal() {
     closeModal('modal-text-setup');
     showScreen('screen-mode');
     updateModeScreen();
+    tourTrigger('mode_select');
     setTimeout(resetTextSetupModal, 400);
   });
 }
@@ -497,7 +501,6 @@ function initModeSelect() {
   $('mode-back')?.addEventListener('click', () => {
     STATE.course === 'literature' ? openModal('modal-text-setup') : showScreen('screen-course');
   });
-
   document.querySelectorAll('.section-pill').forEach(pill => {
     pill.addEventListener('click', () => {
       document.querySelectorAll('.section-pill').forEach(p => p.classList.remove('active'));
@@ -516,9 +519,13 @@ function initModeSelect() {
         startSession();
       } else {
         showScreen('screen-timer');
+        tourTrigger('timer_select');
       }
     });
   });
+
+  // Show session options tour step after mode cards are visible
+  setTimeout(() => tourTrigger('session_options'), 600);
 
   // Reading time toggle
   const rtToggle = $('reading-time-toggle');
@@ -612,6 +619,9 @@ async function startSession() {
   // Scaffold hints panel
   if (STATE.mode === 'scaffolded' && STATE.scaffoldData) renderScaffoldPanel();
 
+  // Tour: question is now visible
+  tourTrigger('question_ready');
+
   // Intro mode: auto-lock and start timer immediately
   if (STATE.mode === 'intro') {
     STATE.questionLocked = true;
@@ -619,6 +629,7 @@ async function startSession() {
     initCountdown(8 * 60);
     startAutosave();
     $('writing-area')?.focus();
+    tourTrigger('editor_writing');
     return;
   }
 
@@ -628,7 +639,6 @@ async function startSession() {
   $('question-start')?.addEventListener('click', lockAndStartWriting, { once: true });
 
   // Reading time: show the overlay OVER the visible question
-  // Only if enabled — overlay sits on top, doesn't replace the editor
   if (STATE.readingTimeEnabled) {
     startReadingTime();
   }
@@ -654,12 +664,17 @@ async function generateQuestionQuietly() {
   // Use custom question if the student provided one
   if (STATE.customQuestion) {
     STATE.currentQuestion = STATE.customQuestion;
-    STATE.customQuestion  = null; // consume it
+    STATE.customQuestion  = null;
+    if (STATE.mode === 'scaffolded') {
+      // Generate blueprint for custom question too
+      await generateScaffoldBlueprint(STATE.currentQuestion);
+    }
     const textEl = $('question-text');
     if (textEl) textEl.textContent = STATE.currentQuestion;
     return;
   }
-  const pastQs = LITERATURE_PAST_QUESTIONS.map(q => `${q.year} Q${q.question_number}: ${q.text}`).join('\n');
+
+  const pastQs   = LITERATURE_PAST_QUESTIONS.map(q => `${q.year} Q${q.question_number}: ${q.text}`).join('\n');
   const concepts = LITERATURE_SYLLABUS_CONCEPTS.map(c => `• ${c.concept}`).join('\n');
   const isEnglish = STATE.course === 'english';
 
@@ -673,26 +688,91 @@ async function generateQuestionQuietly() {
     prompt = `${GEMINI_PROMPTS.question_generation_literature}\nSTUDIED TEXT: "${STATE.textTitle}" by ${STATE.textAuthor}\nPAST QUESTIONS:\n${pastQs}\nKEY CONCEPTS:\n${concepts}\nGenerate ONE new practice question now.`;
   }
 
-  if (STATE.mode === 'scaffolded') {
-    prompt += '\n\nAlso generate 3 suggested analytical angles for this question and list the 2 most relevant syllabus concepts. Format: QUESTION: [...] ANGLES: 1. ... 2. ... 3. ... CONCEPTS: [concept1], [concept2]';
-  }
-
+  // For scaffolded mode, generate question first then blueprint separately
+  // so we don't blow the token budget in one call
   try {
-    const result = await callGemini(prompt, null, 600);
-    if (STATE.mode === 'scaffolded') {
-      const qMatch = result.match(/QUESTION:\s*([\s\S]*?)(?=ANGLES:|$)/i);
-      const aMatch = result.match(/ANGLES:\s*([\s\S]*?)(?=CONCEPTS:|$)/i);
-      const cMatch = result.match(/CONCEPTS:\s*([\s\S]*?)$/i);
-      STATE.currentQuestion = qMatch?.[1]?.trim() || result;
-      STATE.scaffoldData = { angles: aMatch?.[1]?.trim() || '', concepts: cMatch?.[1]?.trim() || '' };
-    } else {
-      STATE.currentQuestion = result;
-    }
+    const result = await callGemini(prompt, null, 400);
+    STATE.currentQuestion = result.trim();
     const textEl = $('question-text');
     if (textEl) textEl.textContent = STATE.currentQuestion;
+
+    if (STATE.mode === 'scaffolded') {
+      await generateScaffoldBlueprint(STATE.currentQuestion);
+    }
   } catch(e) {
     STATE.currentQuestion = 'Could not generate question. Please check your API key and try again.';
   }
+}
+
+async function generateScaffoldBlueprint(question) {
+  const isLit    = STATE.course === 'literature';
+  const textInfo = isLit ? `\nSTUDIED TEXT: "${STATE.textTitle}" by ${STATE.textAuthor} (${STATE.textType})` : '';
+  const quoteCtx = isLit && STATE.quoteBank.length
+    ? `\nAVAILABLE QUOTES:\n${STATE.quoteBank.slice(0, 8).map(q => `• "${q.text}"${q.label ? ` [${q.label}]` : ''}`).join('\n')}`
+    : '';
+  const conceptsList = isLit
+    ? LITERATURE_SYLLABUS_CONCEPTS.slice(0, 10).map(c => c.concept).join(', ')
+    : ENGLISH_SYLLABUS_CONCEPTS.shared.map(c => c.concept).join(', ');
+
+  const prompt = `You are a WACE ${isLit ? 'English Literature ATAR' : 'English ATAR'} teacher generating a scaffolded essay blueprint for a Year 12 student.
+${textInfo}
+QUESTION: ${question}
+AVAILABLE CONCEPTS: ${conceptsList}
+${quoteCtx}
+
+Generate a detailed essay blueprint. Format EXACTLY like this with no deviations:
+
+CONTENTION: [A suggested one-sentence argument that directly addresses the question — start with the text title or author name]
+
+PARAGRAPH 1 — CLAIM: [A specific analytical claim for body paragraph 1]
+PARAGRAPH 1 — CONCEPT: [The most relevant syllabus concept to deploy]
+PARAGRAPH 1 — ANGLE: [One sentence on the non-dominant or nuanced reading to pursue]
+${isLit && STATE.quoteBank.length ? 'PARAGRAPH 1 — QUOTE TIP: [Which quote to use and why]' : ''}
+
+PARAGRAPH 2 — CLAIM: [A specific analytical claim for body paragraph 2]
+PARAGRAPH 2 — CONCEPT: [The most relevant syllabus concept to deploy]
+PARAGRAPH 2 — ANGLE: [One sentence on the nuanced reading to pursue]
+${isLit && STATE.quoteBank.length ? 'PARAGRAPH 2 — QUOTE TIP: [Which quote to use and why]' : ''}
+
+PARAGRAPH 3 — CLAIM: [A specific analytical claim for body paragraph 3]
+PARAGRAPH 3 — CONCEPT: [The most relevant syllabus concept to deploy]
+PARAGRAPH 3 — ANGLE: [One sentence on the nuanced reading to pursue]
+${isLit && STATE.quoteBank.length ? 'PARAGRAPH 3 — QUOTE TIP: [Which quote to use and why]' : ''}
+
+INTRODUCTION TIP: [One sentence on how to open the introduction effectively for this specific question]
+CONCLUSION TIP: [One sentence on how to end the response for maximum impact]
+WATCH OUT FOR: [One sentence naming the single most common mistake students make on this type of question]`;
+
+  try {
+    const result = await callGemini(prompt, null, 900);
+    STATE.scaffoldData = parseScaffoldBlueprint(result);
+  } catch(e) {
+    // Fallback minimal scaffold data so rendering doesn't break
+    STATE.scaffoldData = { contention: '', paragraphs: [], introTip: '', conclusionTip: '', watchOut: '', raw: '' };
+  }
+}
+
+function parseScaffoldBlueprint(text) {
+  const get = (label) => {
+    const m = text.match(new RegExp(`${label}:\\s*([^\\n]+)`, 'i'));
+    return m?.[1]?.trim() || '';
+  };
+
+  const paragraphs = [1, 2, 3].map(n => ({
+    claim:    get(`PARAGRAPH ${n} — CLAIM`),
+    concept:  get(`PARAGRAPH ${n} — CONCEPT`),
+    angle:    get(`PARAGRAPH ${n} — ANGLE`),
+    quoteTip: get(`PARAGRAPH ${n} — QUOTE TIP`)
+  }));
+
+  return {
+    contention:   get('CONTENTION'),
+    paragraphs,
+    introTip:     get('INTRODUCTION TIP'),
+    conclusionTip:get('CONCLUSION TIP'),
+    watchOut:     get('WATCH OUT FOR'),
+    raw: text
+  };
 }
 
 function updateEditorBadges() {
@@ -872,34 +952,71 @@ function showArgumentMapperTab() {
    14. SCAFFOLD PANEL
    ============================================================ */
 function renderScaffoldPanel() {
-  const qHeader = $('question-header-inner');
-  if (!qHeader || !STATE.scaffoldData) return;
+  if (!STATE.scaffoldData) return;
+  const d = STATE.scaffoldData;
 
   let panel = $('scaffold-panel');
   if (!panel) {
     panel = document.createElement('div');
-    panel.className = 'scaffold-panel visible';
     panel.id = 'scaffold-panel';
+    panel.className = 'scaffold-panel visible';
     $('question-header')?.appendChild(panel);
   }
 
-  const angles = STATE.scaffoldData.angles.split(/\d+\.\s+/).filter(a => a.trim());
-  const concepts = STATE.scaffoldData.concepts.split(',').map(c => c.trim()).filter(Boolean);
+  const isLit = STATE.course === 'literature';
+
+  // Paragraph cards
+  const paraCards = d.paragraphs.map((p, i) => {
+    if (!p.claim && !p.concept) return '';
+    return `
+      <div class="blueprint-para-card">
+        <div class="blueprint-para-num">¶${i + 1}</div>
+        <div class="blueprint-para-body">
+          ${p.claim    ? `<div class="blueprint-row"><span class="blueprint-label">Claim</span><span class="blueprint-val">${escapeHtml(p.claim)}</span></div>` : ''}
+          ${p.concept  ? `<div class="blueprint-row"><span class="blueprint-label concept">Concept</span><span class="blueprint-val">${escapeHtml(p.concept)}</span></div>` : ''}
+          ${p.angle    ? `<div class="blueprint-row"><span class="blueprint-label angle">Angle</span><span class="blueprint-val">${escapeHtml(p.angle)}</span></div>` : ''}
+          ${p.quoteTip ? `<div class="blueprint-row"><span class="blueprint-label quote">Quote</span><span class="blueprint-val">${escapeHtml(p.quoteTip)}</span></div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
 
   panel.innerHTML = `
-    <div class="scaffold-panel-title">Analytical Guidance</div>
-    <div style="max-width:820px;margin:0 auto;display:flex;gap:var(--space-6);flex-wrap:wrap;">
-      ${angles.length ? `
-      <div class="scaffold-section" style="flex:1;min-width:200px">
-        <p class="scaffold-section-label">Suggested analytical angles</p>
-        <ul class="scaffold-list">${angles.map(a => `<li>${escapeHtml(a.trim())}</li>`).join('')}</ul>
+    <div class="blueprint-header">
+      <span class="blueprint-badge">Essay Blueprint</span>
+      <button class="blueprint-toggle" id="blueprint-toggle" type="button" aria-expanded="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+        Hide
+      </button>
+    </div>
+    <div class="blueprint-body" id="blueprint-body">
+      ${d.contention ? `
+      <div class="blueprint-contention">
+        <span class="blueprint-label">Suggested contention</span>
+        <p class="blueprint-contention-text">${escapeHtml(d.contention)}</p>
       </div>` : ''}
-      ${concepts.length ? `
-      <div class="scaffold-section" style="flex:0 0 auto">
-        <p class="scaffold-section-label">Key concepts to apply</p>
-        <ul class="scaffold-list">${concepts.map(c => `<li>${escapeHtml(c)}</li>`).join('')}</ul>
-      </div>` : ''}
+
+      <div class="blueprint-paras">
+        ${paraCards}
+      </div>
+
+      <div class="blueprint-tips">
+        ${d.introTip     ? `<div class="blueprint-tip blueprint-tip--intro"><strong>Intro:</strong> ${escapeHtml(d.introTip)}</div>`       : ''}
+        ${d.conclusionTip? `<div class="blueprint-tip blueprint-tip--conc"><strong>Conclusion:</strong> ${escapeHtml(d.conclusionTip)}</div>`: ''}
+        ${d.watchOut     ? `<div class="blueprint-tip blueprint-tip--warn"><strong>⚠ Watch out:</strong> ${escapeHtml(d.watchOut)}</div>`   : ''}
+      </div>
     </div>`;
+
+  // Toggle collapse
+  $('blueprint-toggle')?.addEventListener('click', () => {
+    const body    = $('blueprint-body');
+    const btn     = $('blueprint-toggle');
+    const isOpen  = body?.style.display !== 'none';
+    if (body) body.style.display = isOpen ? 'none' : '';
+    if (btn)  btn.innerHTML = isOpen
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="9 18 15 12 9 6"/></svg> Show'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg> Hide';
+    btn.setAttribute('aria-expanded', String(!isOpen));
+  });
 }
 
 /* ============================================================
@@ -975,11 +1092,13 @@ async function handleRegenQuestion() {
 function lockAndStartWriting() {
   STATE.questionLocked = true;
   $('question-actions')?.classList.add('locked');
-  // timerDuration must be set — fallback to 45 if somehow null
   const duration = STATE.timerDuration || 45;
   initCountdown(duration * 60);
   startAutosave();
   $('writing-area')?.focus();
+  // Tour: now in writing phase — show editor hint, then bottombar hint after delay
+  tourTrigger('editor_writing');
+  setTimeout(() => tourTrigger('editor_ai_help'), 8000);
 }
 
 /* ============================================================
@@ -1270,6 +1389,11 @@ function initEditorEvents() {
     if (popup && !popup.contains(e.target) && e.target !== $('quote-bank-btn')) {
       popup.classList.remove('open');
     }
+    // Close starters drawer if clicking outside
+    const starterDrawer = $('starters-drawer');
+    if (starterDrawer && !starterDrawer.contains(e.target) && e.target !== $('starters-btn')) {
+      starterDrawer.classList.remove('open');
+    }
   });
 
   $('ai-help-btn')?.addEventListener('click', () => {
@@ -1305,6 +1429,7 @@ function initEditorEvents() {
   initExaminerMode();
   initIntroCheck();
   initSentenceVarietyAnalyser();
+  initSentenceStarterBank();
 }
 
 function handleTextSelection() {
@@ -1651,6 +1776,7 @@ function triggerSessionEnd(timerExpired = false) {
 
   showScreen('screen-end');
   initEndScreen();
+  tourTrigger('end_screen');
   if (timerExpired) showToast("Time's up! Great work.", 'info');
 }
 
@@ -1704,7 +1830,6 @@ async function startMarking() {
   const generating = $('results-generating'), scoreBlock = $('results-score-block');
   if (generating) generating.classList.add('visible');
   if (scoreBlock) scoreBlock.classList.remove('visible');
-
   const essay = loadDraft() || $('writing-area')?.innerText || '';
   const markingKey = STATE.course === 'literature' ? buildLiteratureMarkingKeyText() : buildEnglishMarkingKeyText();
   const exemplarText = STATE.course === 'literature'
@@ -1891,6 +2016,11 @@ function renderMarkingResults(data) {
   $('results-print-btn')?.addEventListener('click', () => window.print());
   $('results-try-again-btn')?.addEventListener('click', handleTryAgain);
   $('results-new-session-btn')?.addEventListener('click', resetToStart);
+
+  // Tour: results screen
+  tourTrigger('results');
+  // Final tour step — complete after a short read delay
+  setTimeout(() => tourTrigger('tour_complete'), 6000);
 }
 
 /* ============================================================
@@ -2176,6 +2306,7 @@ function resetToStart() {
   closeModal('modal-confirm-end');
   $('skills-panel')?.classList.remove('open');
   $('terminology-drawer')?.classList.remove('open');
+  $('starters-drawer')?.classList.remove('open');
   $('quote-bank-popup')?.classList.remove('open');
   $('argument-mapper')?.classList.remove('visible');
   $('reading-time-overlay')?.classList.remove('visible');
@@ -2783,139 +2914,282 @@ Write in a direct, supportive teacher register. No bullet points. Plain prose on
 /* ============================================================
    56. ONBOARDING WALKTHROUGH
    ============================================================ */
-const ONBOARDING_STEPS = [
-  {
-    title: 'Welcome to ScriptSense',
-    body: 'ScriptSense is your WACE ATAR English writing practice tool. <strong>AI generates exam questions, gives targeted feedback on your writing, and marks your response exactly like a WACE examiner would.</strong> This quick tour will show you around.',
-    icon: '✍️',
-    target: null,      // no spotlight — full-screen intro card
-    cardPos: 'center'
-  },
-  {
-    title: 'Choose your course & mode',
-    body: 'Select <strong>English Literature ATAR</strong> or <strong>English ATAR</strong>, then pick a mode. <strong>Practice Question</strong> generates an exam question and counts down. <strong>Free Writing</strong> gives you an open stopwatch. <strong>Scaffolded</strong> adds analytical hints alongside the question.',
-    icon: '📚',
-    target: '#screen-course',
-    cardPos: 'center'
-  },
-  {
-    title: 'Get AI help while you write',
-    body: 'Inside the editor, <strong>highlight any sentence</strong> you want improved, then click <strong>"Get AI Help"</strong>. Choose which skill you want help with — engagement, evidence, terminology — and get a rewritten suggestion instantly. <strong>Double-click any word</strong> for a synonym upgrade.',
-    icon: '🤖',
-    target: null,
-    cardPos: 'center'
-  },
-  {
-    title: 'Get marked like a real WACE examiner',
-    body: 'When your time is up, click <strong>"Mark My Response"</strong>. You\'ll receive a mark out of the actual WACE total, criterion-by-criterion feedback with direct quotes from your response, and an overall examiner comment. <strong>No charity. No padding. Exactly what you\'d get in the real exam.</strong>',
-    icon: '📝',
-    target: null,
-    cardPos: 'center'
-  },
-  {
-    title: 'Tools at your fingertips',
-    body: 'The bottom bar has everything you need mid-session: <strong>Counter</strong> generates a counter-argument, <strong>Quotes</strong> inserts from your quote bank, <strong>Terms</strong> opens a full terminology bank. Press <strong>?</strong> anytime to see all keyboard shortcuts. Your draft is saved automatically every 30 seconds.',
-    icon: '⚡',
-    target: null,
-    cardPos: 'center'
-  }
-];
+/* ============================================================
+   56. CONTEXTUAL GUIDED TOUR
+   Triggers at each real screen/action as the user navigates.
+   ============================================================ */
 
-let _onboardingStep = 0;
+const TOUR = {
+  // Maps trigger keys → step config
+  // Each step spotlights a real element and positions the card nearby
+  steps: {
+    api_key: {
+      title: 'Step 1 — Enter your API key',
+      body:  'ScriptSense uses <strong>Google\'s Gemini AI</strong> to generate questions, give feedback, and mark your writing. Paste your free Gemini key here. You can get one in 30 seconds at <strong>aistudio.google.com</strong>.',
+      icon:  '🔑',
+      target: '#gate-card',
+      arrow: 'bottom',
+      total: 10
+    },
+    course_select: {
+      title: 'Step 2 — Choose your course',
+      body:  '<strong>English Literature ATAR</strong> focuses on one studied text — ideology, discourse, and close reading. <strong>English ATAR</strong> covers composing, responding, and comprehending across different genres. Pick the one you\'re studying.',
+      icon:  '📚',
+      target: '.course-cards',
+      arrow: 'top',
+      total: 10
+    },
+    text_setup: {
+      title: 'Your studied text',
+      body:  'Tell ScriptSense what text you\'re studying. This lets the AI generate questions specific to your work and give feedback that references your text by name. <strong>Add quotes on the next step</strong> — they\'ll be available when writing.',
+      icon:  '✍️',
+      target: '#text-setup-step1',
+      arrow: 'left',
+      total: 10
+    },
+    mode_select: {
+      title: 'Step 3 — Pick a mode',
+      body:  '<strong>Practice Question</strong> gives you an AI exam question with a countdown. <strong>Free Writing</strong> is open-ended with a stopwatch. <strong>Scaffolded</strong> generates a full essay blueprint alongside the question. <strong>Intro Challenge</strong> is a focused 8-minute drill.',
+      icon:  '🎯',
+      target: '.mode-cards',
+      arrow: 'top',
+      total: 10
+    },
+    session_options: {
+      title: 'Session settings',
+      body:  'Set a <strong>session focus</strong> to target a specific marking criterion — the AI will pay extra attention to it. Toggle <strong>reading time</strong> to simulate exam conditions with 5 minutes to plan before writing starts.',
+      icon:  '⚙️',
+      target: '.mode-options-row',
+      arrow: 'top',
+      total: 10
+    },
+    timer_select: {
+      title: 'Step 4 — Set your time',
+      body:  'Choose the same duration as your exam — <strong>45 minutes</strong> is standard for most WACE tasks. The countdown starts once your question is generated and you click Start Writing.',
+      icon:  '⏱',
+      target: '.timer-options',
+      arrow: 'top',
+      total: 10
+    },
+    question_ready: {
+      title: 'Step 5 — Your question',
+      body:  'The AI has generated an exam-style question based on the past 5 years of WACE papers. <strong>Read it carefully</strong>. You can regenerate once if you want a different question. Click <strong>Start Writing</strong> when ready — the timer begins then.',
+      icon:  '❓',
+      target: '#question-content',
+      arrow: 'bottom',
+      total: 10
+    },
+    editor_writing: {
+      title: 'Step 6 — Write your response',
+      body:  'This is your <strong>distraction-free writing space</strong>. Your draft saves automatically every 30 seconds. The complexity gutter on the left flags structural issues. The timer is always visible at the top.',
+      icon:  '✍️',
+      target: '.writing-area-wrap',
+      arrow: 'right',
+      total: 10
+    },
+    editor_ai_help: {
+      title: 'Step 7 — Get targeted AI help',
+      body:  '<strong>Highlight any sentence</strong> and click "Help me with this" — then tick which skill you need help with. The AI rewrites it and streams an assessment below. <strong>Double-click any word</strong> for a synonym upgrade. The bottombar has quotes, terms, and sentence starters.',
+      icon:  '🤖',
+      target: '.editor-bottombar',
+      arrow: 'top',
+      total: 10
+    },
+    end_screen: {
+      title: 'Step 8 — Session complete',
+      body:  'Click <strong>Mark My Response</strong> for full WACE-style marking — criterion by criterion, with direct quotes from your response as evidence. Brutal. Honest. Exactly what you\'d get in the real exam. Or try again on the same question to see your mark improve.',
+      icon:  '📝',
+      target: '#mark-response-btn',
+      arrow: 'left',
+      total: 10
+    },
+    results: {
+      title: 'Step 9 — Your marking report',
+      body:  'Each criterion card shows your mark, the descriptor level, a specific examiner comment, and a quote from your response. Click <strong>"Help me improve this criterion"</strong> to go back to the editor with that criterion pre-loaded. The <strong>Vocabulary Report</strong> below shows overused words.',
+      icon:  '📊',
+      target: '.criteria-list',
+      arrow: 'top',
+      total: 10
+    },
+    tour_complete: {
+      title: 'Tour complete! 🎉',
+      body:  'You know your way around ScriptSense. Press <strong>?</strong> anytime to see keyboard shortcuts. The tour is done — go practise.',
+      icon:  '✅',
+      target: null,
+      arrow: null,
+      total: 10
+    }
+  }
+};
+
+let _tourActive  = false;
+let _tourKey     = null;
 
 function initOnboarding() {
-  // Check if first time
-  try {
-    if (localStorage.getItem('scriptsense_onboarded')) return;
-  } catch(e) {}
-
-  // Small delay so the page settles first
-  setTimeout(startOnboarding, 600);
+  // Only start tour if first time
+  try { if (localStorage.getItem('scriptsense_onboarded')) return; }
+  catch(e) {}
+  // Don't auto-start — show a "Take the tour" prompt on the API key screen instead
+  setTimeout(showTourPrompt, 900);
 }
 
-function startOnboarding() {
+function showTourPrompt() {
+  // Inject a subtle "Take the tour" link below the API key submit button
+  const gateField = document.querySelector('.gate-field-wrap');
+  if (!gateField || $('tour-prompt-link')) return;
+  const p = document.createElement('p');
+  p.className = 'field-hint';
+  p.id = 'tour-prompt-link';
+  p.style.justifyContent = 'center';
+  p.innerHTML = `<a href="#" id="start-tour-link" style="color:var(--accent);font-weight:600;">✦ New here? Take the guided tour</a>`;
+  gateField.appendChild(p);
+  $('start-tour-link')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    _tourActive = true;
+    showTourStep('api_key');
+  });
+}
+
+function showTourStep(key) {
+  if (!_tourActive) return;
+  _tourKey = key;
+  const step    = TOUR.steps[key];
   const overlay = $('onboarding-overlay');
-  if (!overlay) return;
-
-  _onboardingStep = 0;
-  overlay.classList.add('active');
-  overlay.setAttribute('aria-hidden', 'false');
-  renderOnboardingStep(_onboardingStep);
-
-  $('onboarding-next')?.addEventListener('click', advanceOnboarding);
-  $('onboarding-skip')?.addEventListener('click', finishOnboarding);
-}
-
-function renderOnboardingStep(stepIdx) {
-  const step      = ONBOARDING_STEPS[stepIdx];
-  const total     = ONBOARDING_STEPS.length;
-  const overlay   = $('onboarding-overlay');
+  const card    = $('onboarding-card');
   const spotlight = $('onboarding-spotlight');
-  const card      = $('onboarding-card');
-  const progressBar = $('onboarding-progress-bar');
-
-  if (!step || !card) return;
-
-  // Update progress
-  if (progressBar) progressBar.style.width = `${((stepIdx + 1) / total) * 100}%`;
-  if ($('onboarding-step-count')) $('onboarding-step-count').textContent = `${stepIdx + 1} / ${total}`;
+  if (!step || !overlay || !card) return;
 
   // Update content
+  overlay.classList.add('active');
+  overlay.setAttribute('aria-hidden', 'false');
   if ($('onboarding-icon'))  $('onboarding-icon').textContent  = step.icon;
   if ($('onboarding-title')) $('onboarding-title').textContent = step.title;
   if ($('onboarding-body'))  $('onboarding-body').innerHTML    = step.body;
 
-  // Update next button label on last step
-  const nextBtn = $('onboarding-next');
-  if (nextBtn) nextBtn.textContent = stepIdx === total - 1 ? "Let's go! →" : 'Next →';
+  // Hide step count for simpler feel — just show skip/next
+  if ($('onboarding-step-count')) $('onboarding-step-count').textContent = '';
+  if ($('onboarding-progress-bar')) $('onboarding-progress-bar').style.width = '0%';
 
-  // Spotlight target element
+  // Button labels
+  const nextBtn = $('onboarding-next');
+  if (nextBtn) nextBtn.textContent = key === 'tour_complete' ? 'Start practising →' : 'Got it →';
+  const skipBtn = $('onboarding-skip');
+  if (skipBtn) skipBtn.textContent = key === 'tour_complete' ? '' : 'Skip tour';
+
+  // Attach button handlers fresh each step (clone to remove old listeners)
+  if (nextBtn) {
+    const newNext = nextBtn.cloneNode(true);
+    nextBtn.parentNode?.replaceChild(newNext, nextBtn);
+    newNext.addEventListener('click', () => {
+      if (key === 'tour_complete') finishOnboarding();
+      else dismissTourStep(); // hide card, wait for user to do the next action
+    });
+  }
+  if (skipBtn && skipBtn.textContent) {
+    const newSkip = skipBtn.cloneNode(true);
+    skipBtn.parentNode?.replaceChild(newSkip, skipBtn);
+    newSkip.addEventListener('click', finishOnboarding);
+  }
+
+  // Spotlight + card positioning
+  requestAnimationFrame(() => positionTourCard(step, card, spotlight));
+}
+
+function positionTourCard(step, card, spotlight) {
+  const PAD = 14;
+
+  // Spotlight target
   if (step.target) {
     const targetEl = document.querySelector(step.target);
     if (targetEl && spotlight) {
       const rect = targetEl.getBoundingClientRect();
-      const pad  = 8;
       spotlight.style.display = 'block';
-      spotlight.style.top     = `${rect.top - pad}px`;
-      spotlight.style.left    = `${rect.left - pad}px`;
-      spotlight.style.width   = `${rect.width + pad * 2}px`;
-      spotlight.style.height  = `${rect.height + pad * 2}px`;
+      spotlight.style.top     = `${rect.top - PAD}px`;
+      spotlight.style.left    = `${rect.left - PAD}px`;
+      spotlight.style.width   = `${rect.width + PAD * 2}px`;
+      spotlight.style.height  = `${rect.height + PAD * 2}px`;
     }
   } else {
     if (spotlight) spotlight.style.display = 'none';
   }
 
-  // Position card
-  if (step.cardPos === 'center') {
-    card.style.top       = '50%';
-    card.style.left      = '50%';
+  // Card position — try to sit near the spotlight without covering it
+  card.style.transition = 'none';
+  card.style.transform  = 'none';
+  card.style.top = card.style.left = card.style.right = card.style.bottom = 'auto';
+
+  const CARD_W = 360;
+  const vw = window.innerWidth, vh = window.innerHeight;
+
+  if (!step.target || !step.arrow) {
+    // Centre fallback
+    card.style.top    = '50%';
+    card.style.left   = '50%';
     card.style.transform = 'translate(-50%, -50%)';
-    card.style.bottom    = 'auto';
-    card.style.right     = 'auto';
+  } else {
+    const targetEl = document.querySelector(step.target);
+    const rect     = targetEl ? targetEl.getBoundingClientRect() : { top:vh/2, left:vw/2, width:0, height:0, bottom:vh/2, right:vw/2 };
+    let top, left;
+
+    if (step.arrow === 'bottom') {
+      // Card sits above the target
+      top  = Math.max(PAD, rect.top - 220 - PAD);
+      left = Math.max(PAD, Math.min(rect.left + rect.width/2 - CARD_W/2, vw - CARD_W - PAD));
+    } else if (step.arrow === 'top') {
+      // Card sits below the target
+      top  = Math.min(rect.bottom + PAD, vh - 220 - PAD);
+      left = Math.max(PAD, Math.min(rect.left + rect.width/2 - CARD_W/2, vw - CARD_W - PAD));
+    } else if (step.arrow === 'right') {
+      // Card sits to the left
+      left = Math.max(PAD, rect.left - CARD_W - PAD);
+      top  = Math.max(PAD, Math.min(rect.top + rect.height/2 - 100, vh - 240 - PAD));
+    } else {
+      // Card sits to the right
+      left = Math.min(rect.right + PAD, vw - CARD_W - PAD);
+      top  = Math.max(PAD, Math.min(rect.top + rect.height/2 - 100, vh - 240 - PAD));
+    }
+
+    card.style.top  = `${top}px`;
+    card.style.left = `${left}px`;
   }
 
-  // Animate card in
-  card.style.opacity = '0';
-  card.style.transform = 'translate(-50%, calc(-50% + 12px))';
+  card.style.width = `${CARD_W}px`;
+
+  // Animate in
+  card.style.opacity   = '0';
+  card.style.marginTop = '10px';
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      card.style.transition = 'opacity 0.28s ease, transform 0.28s ease';
-      card.style.opacity = '1';
-      card.style.transform = 'translate(-50%, -50%)';
+      card.style.transition = 'opacity 0.24s ease, margin-top 0.24s ease';
+      card.style.opacity    = '1';
+      card.style.marginTop  = '0px';
     });
   });
 }
 
-function advanceOnboarding() {
-  _onboardingStep++;
-  if (_onboardingStep >= ONBOARDING_STEPS.length) {
-    finishOnboarding();
-  } else {
-    renderOnboardingStep(_onboardingStep);
-  }
+function dismissTourStep() {
+  // Hide card and spotlight but keep tour active — it will re-appear at the next trigger
+  const overlay   = $('onboarding-overlay');
+  const spotlight = $('onboarding-spotlight');
+  const card      = $('onboarding-card');
+  if (card) { card.style.opacity = '0'; }
+  setTimeout(() => {
+    overlay?.classList.remove('active');
+    if (spotlight) spotlight.style.display = 'none';
+  }, 220);
+}
+
+// Called at each screen/action transition when tour is active
+function tourTrigger(key) {
+  if (!_tourActive) return;
+  if (!TOUR.steps[key])  return;
+  // Small delay so the new screen has rendered
+  setTimeout(() => showTourStep(key), 350);
 }
 
 function finishOnboarding() {
+  _tourActive = false;
+  _tourKey    = null;
   const overlay = $('onboarding-overlay');
   if (overlay) {
     overlay.style.opacity = '0';
@@ -2923,8 +3197,7 @@ function finishOnboarding() {
     setTimeout(() => {
       overlay.classList.remove('active');
       overlay.setAttribute('aria-hidden', 'true');
-      overlay.style.opacity = '';
-      overlay.style.transition = '';
+      overlay.style.opacity = overlay.style.transition = '';
     }, 320);
   }
   try { localStorage.setItem('scriptsense_onboarded', '1'); } catch(e) {}
@@ -2952,6 +3225,7 @@ function initKeyboardShortcuts() {
       hideFeedbackWidget();
       $('terminology-drawer')?.classList.remove('open');
       $('quote-bank-popup')?.classList.remove('open');
+      $('starters-drawer')?.classList.remove('open');
     }
 
     // Ctrl/Cmd+S — save draft
@@ -2986,9 +3260,129 @@ function initKeyboardShortcuts() {
 }
 
 /* ============================================================
+   73. SENTENCE STARTER BANK
+   ============================================================ */
+function initSentenceStarterBank() {
+  const drawer  = $('starters-drawer');
+  const btn     = $('starters-btn');
+  const closeB  = $('starters-drawer-close');
+  const search  = $('starters-search');
+  if (!drawer || !btn) return;
+
+  btn.addEventListener('click', () => {
+    const isOpen = drawer.classList.contains('open');
+    if (!isOpen) {
+      drawer.classList.add('open');
+      drawer.setAttribute('aria-hidden', 'false');
+      // Close terminology drawer if open
+      $('terminology-drawer')?.classList.remove('open');
+      renderStarterList('');
+      search?.focus();
+    } else {
+      drawer.classList.remove('open');
+      drawer.setAttribute('aria-hidden', 'true');
+    }
+  });
+
+  closeB?.addEventListener('click', () => {
+    drawer.classList.remove('open');
+    drawer.setAttribute('aria-hidden', 'true');
+  });
+
+  search?.addEventListener('input', () => renderStarterList(search.value));
+}
+
+function renderStarterList(query) {
+  const list = $('starters-list');
+  if (!list) return;
+
+  const q = query.toLowerCase().trim();
+  list.innerHTML = '';
+
+  SENTENCE_STARTERS.forEach(group => {
+    const filtered = q
+      ? group.starters.filter(s => s.toLowerCase().includes(q))
+      : group.starters;
+
+    if (!filtered.length) return;
+
+    if (!q) {
+      const heading = document.createElement('div');
+      heading.className = 'starters-group-label';
+      heading.textContent = group.group;
+      list.appendChild(heading);
+    }
+
+    filtered.forEach(starter => {
+      const item = document.createElement('div');
+      item.className = 'starter-item';
+      item.textContent = starter;
+      item.addEventListener('click', () => {
+        insertTextAtCursor(starter + ' ');
+        // Close drawer after insertion
+        $('starters-drawer')?.classList.remove('open');
+        $('writing-area')?.focus();
+        showToast('Starter inserted', 'success');
+      });
+      list.appendChild(item);
+    });
+  });
+
+  if (!list.children.length) {
+    list.innerHTML = '<p style="padding:var(--space-4);color:var(--ink-ghost);font-size:0.875rem;">No starters match your search.</p>';
+  }
+}
+
+/* ============================================================
+   77. DARK MODE
+   ============================================================ */
+function initDarkMode() {
+  const btn = $('dark-mode-toggle');
+  if (!btn) return;
+
+  // Also add sun icon to the button now that we need to swap
+  btn.innerHTML = `
+    <svg class="icon icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="icon icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+
+  // Restore saved preference
+  try {
+    if (localStorage.getItem('scriptsense_darkmode') === '1') {
+      applyDarkMode(true);
+      btn.setAttribute('aria-pressed', 'true');
+    }
+  } catch(e) {}
+
+  btn.addEventListener('click', () => {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    applyDarkMode(!isDark);
+    btn.setAttribute('aria-pressed', String(!isDark));
+    try { localStorage.setItem('scriptsense_darkmode', !isDark ? '1' : '0'); } catch(e) {}
+  });
+}
+
+function applyDarkMode(enable) {
+  if (enable) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+}
+
+// Call dark mode init globally (not just in editor) so it applies on every screen
+function initGlobalDarkMode() {
+  try {
+    if (localStorage.getItem('scriptsense_darkmode') === '1') {
+      applyDarkMode(true);
+    }
+  } catch(e) {}
+}
+
+/* ============================================================
    36. INIT
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
+  initGlobalDarkMode();   // apply saved preference before anything renders
   initApiKeyScreen();
   initCourseSelect();
   initTextSetupModal();
@@ -2999,6 +3393,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initCustomQuestionInput();
   initWeekSummary();
   initShortcutsModal();
+  initDarkMode();
   initOnboarding();
 
   // Results screen listeners
