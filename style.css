@@ -1629,19 +1629,23 @@ ul, ol { list-style: none; }
 }
 
 .suggestion-card {
-  position: absolute;
+  position: fixed;       /* fixed so it stays in viewport regardless of scroll */
   background: var(--bg-card);
   border: var(--border-card);
   border-left: 3px solid var(--sage);
   border-radius: var(--r-lg);
   padding: var(--space-4);
-  max-width: 340px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  max-height: 70vh;      /* never taller than 70% of the screen */
+  overflow-y: auto;      /* scroll internally if content is long */
   box-shadow: var(--shadow-lg);
   pointer-events: all;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   animation: cardPop var(--t-spring) both;
+  z-index: 301;
 }
 
 @keyframes cardPop {
