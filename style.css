@@ -3536,3 +3536,323 @@ ul, ol { list-style: none; }
   max-width: 160px;
 }
 .version-select:focus { outline: none; border-color: var(--accent); }
+
+/* ============================================================
+   FEATURES 43, 44, 49, 50, 52, 54, 56, 58
+   ============================================================ */
+
+/* 43 — Intro check button */
+.topbar-icon-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: var(--r-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 44 — Sentence variety bar */
+.sentence-variety-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 32px;
+  background: var(--bg-warm);
+  border-top: 1px solid var(--ink-rule);
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+  font-weight: 500;
+  animation: screenFadeIn var(--t-base) both;
+}
+.sentence-variety-bar .icon { color: var(--warning, #a07030); flex-shrink: 0; }
+.sentence-variety-bar.ok { background: var(--bg-card); }
+.sentence-variety-bar.ok .icon { color: var(--sage); }
+
+/* 49 — Feedback rating on suggestion cards */
+.suggestion-card-rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  margin-top: 2px;
+}
+.suggestion-card-rating-label {
+  font-size: 0.68rem;
+  color: rgba(255,255,255,0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex: 1;
+}
+.rating-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px 5px;
+  border-radius: var(--r-sm);
+  transition: background var(--t-fast), transform var(--t-spring);
+  line-height: 1;
+}
+.rating-btn:hover { background: rgba(255,255,255,0.1); transform: scale(1.2); }
+.rating-btn.selected { background: rgba(255,255,255,0.15); }
+
+/* 50 — Examiner mode toggle row in skills panel */
+.examiner-mode-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  border-top: var(--border-default);
+  background: var(--bg-warm);
+  flex-shrink: 0;
+}
+.examiner-mode-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+/* Skills panel in examiner mode — red accent */
+.skills-panel.examiner-active .skills-panel-header { background: rgba(184,50,50,0.06); }
+.skills-panel.examiner-active .skills-panel-title::after {
+  content: ' · EXAMINER';
+  font-size: 0.65rem;
+  color: var(--danger);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+}
+.examiner-mode-toggle.active .toggle-track { background: var(--danger); }
+
+/* 52 — Custom question input */
+.custom-question-wrap {
+  border: var(--border-card);
+  border-radius: var(--r-xl);
+  background: var(--bg-card);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+.custom-question-header {
+  padding: 0;
+}
+.custom-question-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: color var(--t-fast), background var(--t-fast);
+  border-radius: var(--r-xl);
+}
+.custom-question-toggle-btn:hover { color: var(--accent); background: var(--accent-pale); }
+.custom-question-toggle-btn .icon { color: var(--accent); flex-shrink: 0; }
+.custom-question-body {
+  padding: 0 var(--space-5) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  animation: screenFadeIn var(--t-base) both;
+}
+.custom-question-textarea {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.9375rem;
+  min-height: 80px;
+}
+
+/* 54 — Week summary modal */
+.week-summary-modal {
+  max-width: 560px;
+}
+.week-summary-generating {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-6);
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+.week-summary-content {
+  padding: 0 var(--space-2) var(--space-4);
+}
+.week-summary-text {
+  font-size: 0.9375rem;
+  color: var(--ink);
+  line-height: 1.85;
+  padding: var(--space-4);
+  background: var(--bg-warm);
+  border-radius: var(--r-lg);
+  border-left: 3px solid var(--sage);
+}
+.shortcuts-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+.shortcuts-close {
+  background: none;
+  border: none;
+  color: var(--ink-ghost);
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  transition: all var(--t-fast);
+}
+.shortcuts-close:hover { background: var(--bg-sunken); color: var(--ink); }
+
+/* 56 — Onboarding walkthrough */
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: none;
+  pointer-events: none;
+}
+.onboarding-overlay.active {
+  display: block;
+  pointer-events: all;
+}
+/* Dark scrim that has a hole cut out for the spotlight */
+.onboarding-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(44, 36, 22, 0.72);
+  backdrop-filter: blur(2px);
+  z-index: 9001;
+  pointer-events: all;
+  transition: opacity var(--t-slow);
+}
+.onboarding-spotlight {
+  position: fixed;
+  border-radius: var(--r-xl);
+  box-shadow: 0 0 0 9999px rgba(44, 36, 22, 0.72);
+  z-index: 9002;
+  pointer-events: none;
+  transition: all var(--t-slow) cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid var(--accent);
+}
+.onboarding-card {
+  position: fixed;
+  background: var(--bg-card);
+  border-radius: var(--r-2xl);
+  box-shadow: var(--shadow-xl);
+  width: min(380px, calc(100vw - 32px));
+  padding: var(--space-6);
+  z-index: 9003;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  transition: all var(--t-slow) cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1.5px solid var(--bg-deep);
+}
+.onboarding-progress {
+  height: 3px;
+  background: var(--bg-deep);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.onboarding-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  border-radius: var(--r-pill);
+  transition: width var(--t-slow);
+}
+.onboarding-step-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-ghost);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.onboarding-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+.onboarding-title {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.onboarding-body {
+  font-size: 0.9375rem;
+  color: var(--ink-muted);
+  line-height: 1.7;
+}
+.onboarding-body strong { color: var(--ink); font-weight: 600; }
+.onboarding-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--space-2);
+  border-top: var(--border-default);
+}
+
+/* 58 — Keyboard shortcuts modal */
+.shortcuts-modal { max-width: 400px; }
+.shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--space-4);
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-3);
+  border-radius: var(--r-md);
+  transition: background var(--t-fast);
+}
+.shortcut-row:hover { background: var(--bg-sunken); }
+.shortcut-keys {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 130px;
+  flex-shrink: 0;
+}
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  background: var(--bg-sunken);
+  border: 1.5px solid var(--ink-rule);
+  border-bottom-width: 2.5px;
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  box-shadow: 0 1px 0 var(--ink-rule);
+}
+.shortcut-desc {
+  font-size: 0.875rem;
+  color: var(--ink);
+}
+.shortcuts-tip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.8rem;
+  color: var(--ink-ghost);
+  padding: var(--space-3) var(--space-3);
+  background: var(--bg-warm);
+  border-radius: var(--r-lg);
+}
+.shortcuts-tip .icon { flex-shrink: 0; }
