@@ -1179,3 +1179,100 @@ const WEAK_WORDS = [
   { word: 'idea',     alternatives: ['notion','premise','proposition','conceptualisation'] },
   { word: 'shows that',alternatives:['demonstrates','suggests','implies','intimates'] },
 ];
+
+/* ============================================================
+   SENTENCE STARTER BANK (Feature 73)
+   Grouped by function — click to insert at cursor
+   ============================================================ */
+const SENTENCE_STARTERS = [
+  {
+    group: 'Introducing a reading',
+    starters: [
+      'García Márquez constructs...',
+      'The text positions its reader to...',
+      'Through the deployment of...',
+      'A reading of this passage reveals...',
+      'The author's ideological investment in...',
+      'Viewing this text through a [X] lens exposes...',
+      'A non-dominant reading of this moment suggests...',
+      'When read against the grain, the text...',
+    ]
+  },
+  {
+    group: 'Making a claim',
+    starters: [
+      'Central to this text's ideology is...',
+      'What is ideologically significant here is...',
+      'The representation of [X] serves to naturalise...',
+      'Crucially, this construction of [X] operates to...',
+      'What the text works to obscure is...',
+      'At stake in this representation is...',
+      'The effect of this structural choice is...',
+      'Underpinning this moment is an assumption that...',
+    ]
+  },
+  {
+    group: 'Deploying evidence',
+    starters: [
+      'This is reinforced by...',
+      'This is exemplified in the moment where...',
+      'As [author] writes,',
+      'This is most explicit when...',
+      'This dynamic is captured in the image of...',
+      'The language of [X] recurs when...',
+      'This is reflected in the choice to...',
+      'Evidence of this can be found in...',
+    ]
+  },
+  {
+    group: 'Analysing language',
+    starters: [
+      'The connotations of "[word]" work to...',
+      'The syntactic choice to [X] positions readers to...',
+      'The juxtaposition of [X] and [Y] implies...',
+      'The use of [technique] here serves to...',
+      'The repetition of [X] across the text signals...',
+      'Through the motif of [X], the text constructs...',
+      'The foregrounding of [X] over [Y] reveals...',
+      'The register shifts to [X] when...',
+    ]
+  },
+  {
+    group: 'Pivoting / counter-reading',
+    starters: [
+      'However, a resistant reading reveals...',
+      'Yet a more nuanced examination suggests...',
+      'A feminist reading of this moment would argue...',
+      'Conversely, if we apply a postcolonial lens...',
+      'A Marxist reading foregrounds...',
+      'What is marginalised in this representation is...',
+      'The text's silencing of [X] is itself significant...',
+      'Reading against the dominant discourse here...',
+    ]
+  },
+  {
+    group: 'Contextualising',
+    starters: [
+      'Writing in the context of [period/event], [author]...',
+      'The historical moment of [X] inflects this text's...',
+      'For a contemporary Australian reader...',
+      'Produced in [context], this text reflects...',
+      'The discourse of [X] was dominant at the time of...',
+      'Read in its social context, this representation...',
+      'A twenty-first century reader may find...',
+    ]
+  },
+  {
+    group: 'Concluding / synthesising',
+    starters: [
+      'Ultimately, the text's ideological investment in...',
+      'The persistence of this representation suggests...',
+      'What emerges from this reading is...',
+      'Taken together, these textual choices demonstrate...',
+      'The cumulative effect of these decisions is...',
+      'In this way, [author] constructs a text that...',
+      'This reading reveals that the text does not merely...',
+      'The significance of this lies in the way it...',
+    ]
+  }
+];
