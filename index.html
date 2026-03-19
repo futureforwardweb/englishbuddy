@@ -74,6 +74,10 @@
               <span class="btn-text">Verify Key</span>
               <span class="btn-loader" aria-hidden="true"></span>
             </button>
+
+            <p class="field-hint" id="tour-prompt-wrap" style="justify-content:center;margin-top:4px;">
+              <a href="#" id="start-tour-link" class="link" style="font-weight:600;">✦ First time? Take the guided tour</a>
+            </p>
           </div>
         </div>
 
@@ -252,6 +256,23 @@
                   <span class="detail-pill">8 min</span>
                   <span class="detail-pill">Intro only</span>
                   <span class="detail-pill">Fast feedback</span>
+                </div>
+              </div>
+            </div>
+          </button>
+
+          <button class="mode-card" id="mode-sprint" data-mode="sprint" type="button">
+            <div class="mode-card-inner">
+              <div class="mode-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              </div>
+              <div class="mode-card-body">
+                <h3 class="mode-card-title">Paragraph Sprint</h3>
+                <p class="mode-card-desc">One claim. 12 minutes. Write a single complete analytical paragraph, then get it marked on Evidence and Terminology only.</p>
+                <div class="mode-card-detail">
+                  <span class="detail-pill">12 min</span>
+                  <span class="detail-pill">1 paragraph</span>
+                  <span class="detail-pill">Targeted mark</span>
                 </div>
               </div>
             </div>
@@ -976,6 +997,12 @@
             <div class="vocab-report-body" id="vocab-report-body"></div>
           </section>
 
+          <!-- Examiner word cloud -->
+          <section class="results-wordcloud" id="results-wordcloud" style="display:none">
+            <h3 class="results-section-title">Recurring examiner themes</h3>
+            <div class="wordcloud-body" id="wordcloud-body"></div>
+          </section>
+
           <!-- Results Actions -->
           <div class="results-actions">
             <button class="btn btn-ghost" id="results-try-again-btn" type="button" style="display:none">
@@ -1233,11 +1260,14 @@
   </div>
 
 
+  <!-- Confetti canvas (feature 100) -->
+  <canvas id="confetti-canvas" style="position:fixed;inset:0;z-index:8999;pointer-events:none;display:none;" aria-hidden="true"></canvas>
+
   <!-- ============================================================
        SCRIPTS
   ============================================================ -->
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <script src="data.js?v=2"></script>
+  <script src="app.js?v=2"></script>
 
 </body>
 </html>
