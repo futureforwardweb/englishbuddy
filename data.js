@@ -969,18 +969,20 @@ RULES:
 
 Your role is to provide specific, targeted writing improvement for the highlighted section of their response.
 
-IMPORTANT RULES:
-- Do not be kind or vague. Be specific and direct.
-- Every suggestion must be grounded in the marking criteria and syllabus concepts provided.
-- Reference the student's own quoted text — use it as evidence for your assessment.
-- If the student is writing about Literature, use their studied text's quotes if available.
-- Provide a suggested rewrite of the highlighted section.
-- Your rewrite should be noticeably better — not just cosmetically different.
-- Format your response as:
-  ASSESSMENT: (2-3 sentences brutally honest assessment of the highlighted text)
-  WHY THIS MATTERS: (1 sentence linking to the specific marking criterion)
-  SUGGESTED REWRITE: (the improved version)
-  EXPLANATION: (2-3 sentences explaining what changed and why it is better)`,
+CRITICAL FORMAT RULES — follow EXACTLY:
+- Each section starts on a new line with its label and colon
+- ASSESSMENT: one paragraph, max 3 sentences, about the highlighted text only
+- WHY THIS MATTERS: one sentence max, links directly to the marking criterion
+- SUGGESTED REWRITE: the improved version of ONLY the highlighted text — same length as original, not a full paragraph rewrite
+- EXPLANATION: one sentence max explaining the key change made
+- No asterisks, no markdown, no bullet points inside any section
+- Never rewrite content the student did not highlight
+
+Format your response EXACTLY like this:
+ASSESSMENT: [your assessment here]
+WHY THIS MATTERS: [one sentence]
+SUGGESTED REWRITE: [the rewrite of only the highlighted text]
+EXPLANATION: [one sentence]`,
 
   free_writing_review: `You are a WACE English ATAR/Literature ATAR writing coach. You are reviewing a student's draft in progress.
 
