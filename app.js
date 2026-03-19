@@ -55,6 +55,7 @@ function showScreen(id) {
   });
   const el = $(id);
   if (el) el.classList.add('active');
+  focusScreenElement(id);
 }
 
 function openModal(id) {
@@ -517,6 +518,9 @@ function initModeSelect() {
       } else if (STATE.mode === 'intro') {
         STATE.timerDuration = 8;
         startSession();
+      } else if (STATE.mode === 'sprint') {
+        STATE.timerDuration = 12;
+        startSession();
       } else {
         showScreen('screen-timer');
         tourTrigger('timer_select');
@@ -591,6 +595,26 @@ async function startSession() {
     return;
   }
 
+  // ── Paragraph Sprint — claim sentence, 12 min, auto-lock ─
+  if (STATE.mode === 'sprint') {
+    $('question-header')?.classList.add('visible');
+    setQuestionGenerating(true, 'Generating your claim sentence...');
+    await generateSprintClaim();
+    setQuestionGenerating(false);
+    $('question-content')?.classList.add('visible');
+    const sprintTextEl = $('question-text');
+    if (sprintTextEl) sprintTextEl.textContent = STATE.currentQuestion || 'Write one complete analytical paragraph in response to this claim.';
+    const sprintLabel = document.querySelector('.question-label');
+    if (sprintLabel) sprintLabel.textContent = 'Your claim — write one complete analytical paragraph';
+    STATE.questionLocked = true;
+    $('question-actions')?.classList.add('locked');
+    initCountdown(12 * 60);
+    startAutosave();
+    $('writing-area')?.focus();
+    tourTrigger('editor_writing');
+    return;
+  }
+
   // ── All question modes — show question header with spinner ─
   $('question-header')?.classList.add('visible');
   $('stimulus-header')?.classList.remove('visible');
@@ -645,13 +669,13 @@ async function startSession() {
 }
 
 // Small helper so spinner state is always consistent
-function setQuestionGenerating(loading) {
+function setQuestionGenerating(loading, message) {
   const genEl     = $('question-generating');
   const contentEl = $('question-content');
   if (loading) {
     if (genEl) {
       genEl.style.display = 'flex';
-      genEl.innerHTML = '<div class="generating-spinner" aria-hidden="true"></div><span>Generating your question...</span>';
+      genEl.innerHTML = `<div class="generating-spinner" aria-hidden="true"></div><span>${message || 'Generating your question...'}</span>`;
     }
     contentEl?.classList.remove('visible');
   } else {
@@ -689,7 +713,6 @@ async function generateQuestionQuietly() {
   }
 
   // For scaffolded mode, generate question first then blueprint separately
-  // so we don't blow the token budget in one call
   try {
     const result = await callGemini(prompt, null, 400);
     STATE.currentQuestion = result.trim();
@@ -697,6 +720,9 @@ async function generateQuestionQuietly() {
     if (textEl) textEl.textContent = STATE.currentQuestion;
 
     if (STATE.mode === 'scaffolded') {
+      // Update spinner text so user knows why it's taking longer (feature 99)
+      const genEl = $('question-generating');
+      if (genEl) genEl.innerHTML = '<div class="generating-spinner" aria-hidden="true"></div><span>Building your essay blueprint...</span>';
       await generateScaffoldBlueprint(STATE.currentQuestion);
     }
   } catch(e) {
@@ -776,7 +802,7 @@ function parseScaffoldBlueprint(text) {
 }
 
 function updateEditorBadges() {
-  const modeLabels = { freewrite:'Free Writing', practice:'Practice Question', scaffolded:'Scaffolded', intro:'Intro Challenge' };
+  const modeLabels = { freewrite:'Free Writing', practice:'Practice Question', scaffolded:'Scaffolded', intro:'Intro Challenge', sprint:'Paragraph Sprint' };
   const cb = $('topbar-course-badge'), mb = $('topbar-mode-badge'), tb = $('topbar-text-badge');
   if (cb) cb.textContent = STATE.course === 'literature' ? 'Literature ATAR' : 'English ATAR';
   if (mb) mb.textContent = modeLabels[STATE.mode] || STATE.mode;
@@ -1781,7 +1807,17 @@ function triggerSessionEnd(timerExpired = false) {
 }
 
 function initEndScreen() {
-  $('mark-response-btn')?.addEventListener('click', startMarking, { once: true });
+  // Sprint mode uses targeted marking (evidence + terminology only)
+  if (STATE.mode === 'sprint') {
+    $('mark-response-btn')?.addEventListener('click', markSprintResponse, { once: true });
+    // Update label to reflect sprint context
+    const markTitle = document.querySelector('#mark-response-btn .end-action-title');
+    const markDesc  = document.querySelector('#mark-response-btn .end-action-desc');
+    if (markTitle) markTitle.textContent = 'Mark My Paragraph';
+    if (markDesc)  markDesc.textContent  = 'Marked on Evidence and Terminology only — two criteria, /12 total.';
+  } else {
+    $('mark-response-btn')?.addEventListener('click', startMarking, { once: true });
+  }
   $('download-exit-btn')?.addEventListener('click', downloadAndExit);
   $('new-session-btn')?.addEventListener('click', resetToStart);
   $('try-again-btn')?.addEventListener('click', handleTryAgain);
@@ -2008,6 +2044,12 @@ function renderMarkingResults(data) {
   // Vocab report
   const essay = loadDraft() || '';
   if (essay.trim()) buildVocabReport(essay);
+
+  // Examiner word cloud from history
+  buildWordCloud();
+
+  // Confetti on perfect score (feature 100)
+  maybeFireConfetti(data.total_score, data.total_max);
 
   const tryAgainBtn = $('results-try-again-btn');
   if (tryAgainBtn && STATE.tryAgainData) tryAgainBtn.style.display = '';
@@ -2340,6 +2382,8 @@ function resetToStart() {
   if (timePressure) timePressure.style.display = 'none';
   const vocabSection = $('results-vocab');
   if (vocabSection) vocabSection.style.display = 'none';
+  const wcSection = $('results-wordcloud');
+  if (wcSection) wcSection.style.display = 'none';
   // Remove pressure classes from writing area (area already declared above)
   $('writing-area')?.classList.remove('pressure-low', 'pressure-mid', 'pressure-high');
   // Reset examiner mode
@@ -3026,28 +3070,32 @@ let _tourActive  = false;
 let _tourKey     = null;
 
 function initOnboarding() {
-  // Only start tour if first time
-  try { if (localStorage.getItem('scriptsense_onboarded')) return; }
-  catch(e) {}
-  // Don't auto-start — show a "Take the tour" prompt on the API key screen instead
-  setTimeout(showTourPrompt, 900);
+  // Wire the tour link that's now in the HTML directly
+  const link = $('start-tour-link');
+  if (link) {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      _tourActive = true;
+      // Clear the completed flag so tour can replay
+      try { localStorage.removeItem('scriptsense_onboarded'); } catch(e2) {}
+      showTourStep('api_key');
+    });
+  }
+
+  // Auto-start tour for genuine first-timers (no localStorage flag)
+  let isFirstTime = true;
+  try { isFirstTime = !localStorage.getItem('scriptsense_onboarded'); } catch(e) {}
+  if (isFirstTime) {
+    // Show a subtle pulse on the tour link to draw attention
+    setTimeout(() => {
+      const wrap = $('tour-prompt-wrap');
+      if (wrap) wrap.style.animation = 'reviewPulse 2s ease 2';
+    }, 1200);
+  }
 }
 
 function showTourPrompt() {
-  // Inject a subtle "Take the tour" link below the API key submit button
-  const gateField = document.querySelector('.gate-field-wrap');
-  if (!gateField || $('tour-prompt-link')) return;
-  const p = document.createElement('p');
-  p.className = 'field-hint';
-  p.id = 'tour-prompt-link';
-  p.style.justifyContent = 'center';
-  p.innerHTML = `<a href="#" id="start-tour-link" style="color:var(--accent);font-weight:600;">✦ New here? Take the guided tour</a>`;
-  gateField.appendChild(p);
-  $('start-tour-link')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    _tourActive = true;
-    showTourStep('api_key');
-  });
+  // No longer needed — link is in HTML. Keep as no-op for safety.
 }
 
 function showTourStep(key) {
@@ -3059,39 +3107,42 @@ function showTourStep(key) {
   const spotlight = $('onboarding-spotlight');
   if (!step || !overlay || !card) return;
 
-  // Update content
+  // Activate overlay — but make the backdrop click-through so user can still interact
   overlay.classList.add('active');
   overlay.setAttribute('aria-hidden', 'false');
+  // The overlay itself is pointer-events:none, only card and spotlight have pointer-events
+  overlay.style.pointerEvents = 'none';
+  card.style.pointerEvents = 'all';
+
+  // Update content
   if ($('onboarding-icon'))  $('onboarding-icon').textContent  = step.icon;
   if ($('onboarding-title')) $('onboarding-title').textContent = step.title;
   if ($('onboarding-body'))  $('onboarding-body').innerHTML    = step.body;
-
-  // Hide step count for simpler feel — just show skip/next
   if ($('onboarding-step-count')) $('onboarding-step-count').textContent = '';
   if ($('onboarding-progress-bar')) $('onboarding-progress-bar').style.width = '0%';
 
-  // Button labels
+  // Button labels and handlers — clone to remove stale listeners
   const nextBtn = $('onboarding-next');
-  if (nextBtn) nextBtn.textContent = key === 'tour_complete' ? 'Start practising →' : 'Got it →';
   const skipBtn = $('onboarding-skip');
-  if (skipBtn) skipBtn.textContent = key === 'tour_complete' ? '' : 'Skip tour';
 
-  // Attach button handlers fresh each step (clone to remove old listeners)
   if (nextBtn) {
+    nextBtn.textContent = key === 'tour_complete' ? 'Start practising →' : 'Got it →';
     const newNext = nextBtn.cloneNode(true);
     nextBtn.parentNode?.replaceChild(newNext, nextBtn);
     newNext.addEventListener('click', () => {
       if (key === 'tour_complete') finishOnboarding();
-      else dismissTourStep(); // hide card, wait for user to do the next action
+      else dismissTourStep();
     });
   }
-  if (skipBtn && skipBtn.textContent) {
+  if (skipBtn) {
+    skipBtn.textContent = key === 'tour_complete' ? '' : 'Skip tour';
+    skipBtn.style.display = key === 'tour_complete' ? 'none' : '';
     const newSkip = skipBtn.cloneNode(true);
     skipBtn.parentNode?.replaceChild(newSkip, skipBtn);
     newSkip.addEventListener('click', finishOnboarding);
   }
 
-  // Spotlight + card positioning
+  // Position spotlight and card after a frame so element rects are fresh
   requestAnimationFrame(() => positionTourCard(step, card, spotlight));
 }
 
@@ -3379,10 +3430,232 @@ function initGlobalDarkMode() {
 }
 
 /* ============================================================
+   88. PARAGRAPH SPRINT — CLAIM GENERATOR + TARGETED MARKING
+   ============================================================ */
+async function generateSprintClaim() {
+  const isLit    = STATE.course === 'literature';
+  const textInfo = isLit ? `Text: "${STATE.textTitle}" by ${STATE.textAuthor}` : `Section: ${STATE.section || 'responding'}`;
+  const concepts = isLit
+    ? LITERATURE_SYLLABUS_CONCEPTS.slice(0, 8).map(c => c.concept).join(', ')
+    : ENGLISH_SYLLABUS_CONCEPTS.shared.map(c => c.concept).join(', ');
+
+  const prompt = `You are a WACE ${isLit ? 'English Literature ATAR' : 'English ATAR'} teacher.
+${textInfo}
+Available concepts: ${concepts}
+
+Generate ONE analytical claim sentence that a student could use as the opening of a strong body paragraph.
+The claim must: name the text or author, signal a specific argument, and invite analysis of language/technique.
+Return ONLY the claim sentence. No labels, no preamble.`;
+
+  try {
+    const result = await callGemini(prompt, null, 120);
+    STATE.currentQuestion = result.trim();
+  } catch(e) {
+    STATE.currentQuestion = `Analyse how ${isLit ? STATE.textAuthor || 'the author' : 'the composer'} uses language to construct a particular perspective.`;
+  }
+}
+
+async function markSprintResponse() {
+  // Sprint gets marked only on Evidence and Terminology — two criteria max
+  showScreen('screen-results');
+  const generating = $('results-generating'), scoreBlock = $('results-score-block');
+  if (generating) generating.classList.add('visible');
+  if (scoreBlock) scoreBlock.classList.remove('visible');
+
+  const essay   = loadDraft() || $('writing-area')?.innerText || '';
+  const isLit   = STATE.course === 'literature';
+
+  const prompt = `You are a WACE ${isLit ? 'English Literature ATAR' : 'English ATAR'} examiner.
+A student was given this claim sentence and asked to write ONE complete analytical paragraph in 12 minutes:
+
+CLAIM: ${STATE.currentQuestion}
+
+STUDENT PARAGRAPH:
+${essay}
+
+Mark ONLY these two criteria out of 6 each:
+1. Use of evidence / textual reference — is evidence well chosen, accurately quoted, and smoothly embedded?
+2. Deployment of critical terminology — is course metalanguage used precisely and purposefully?
+
+Return JSON only:
+{"total_score":<n>,"total_max":12,"descriptor_level":"<string>","criteria":[{"name":"Use of evidence","score":<n>,"max":6,"descriptor":"<string>","comment":"<max 150 chars>","evidence":"<quote from student max 80 chars>"},{"name":"Critical terminology","score":<n>,"max":6,"descriptor":"<string>","comment":"<max 150 chars>","evidence":"<quote from student max 80 chars>"}],"examiner_comment":"<max 200 chars>","key_improvement":"<max 100 chars>"}`;
+
+  try {
+    const raw  = await callGemini(prompt, null, 800);
+    const data = parseMarkingJSON(raw);
+    STATE.markedData = data;
+    renderMarkingResults(data);
+    saveSessionToHistory(data, essay);
+  } catch(err) {
+    if (generating) generating.innerHTML = `<span style="color:var(--danger)">Marking failed: ${err.message}</span>`;
+  }
+}
+
+/* ============================================================
+   96. EXAMINER COMMENT WORD CLOUD
+   ============================================================ */
+function buildWordCloud() {
+  const section = $('results-wordcloud');
+  const body    = $('wordcloud-body');
+  if (!section || !body) return;
+
+  // Gather all examiner comments from history
+  const history = loadSessionHistory();
+  if (history.length < 2) return; // need at least 2 sessions to be interesting
+
+  const allText = history
+    .map(s => [
+      s.examiner_comment || '',
+      ...(s.criteria_scores || []).map(c => c.comment || '')
+    ].join(' '))
+    .join(' ')
+    .toLowerCase();
+
+  // Strip stop words
+  const stopWords = new Set(['the','a','an','is','are','was','were','to','of','and','in','that','it','for','on','with','as','be','this','your','you','their','they','has','have','would','could','should','more','also','but','not','or','if','by','at','from','which','when','what','there','into','about','than','very','well','will','been','these','some','each','can','does','do','so','then','its','how','all','both','between','because','through','while','where','who','much','other','any','only','make','use','too','just','may','us','we','had','him','her','his','our','no','up','out','one','two','him','such']);
+
+  const words = allText.match(/\b[a-z]{4,}\b/g) || [];
+  const freq  = {};
+  words.forEach(w => { if (!stopWords.has(w)) freq[w] = (freq[w] || 0) + 1; });
+
+  // Top 20 words
+  const sorted = Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 20);
+
+  if (!sorted.length) return;
+
+  section.style.display = '';
+  const max = sorted[0][1];
+
+  body.innerHTML = sorted
+    .sort(() => Math.random() - 0.5) // randomise order for visual interest
+    .map(([word, count]) => {
+      const tier = Math.ceil((count / max) * 5);
+      return `<span class="wc-chip wc-chip--${tier}" title="appears ${count} times">${escapeHtml(word)}</span>`;
+    })
+    .join('');
+}
+
+/* ============================================================
+   98. AUTOFOCUS IMPROVEMENTS
+   ============================================================ */
+function initAutofocus() {
+  // Course select — focus first course card
+  document.querySelectorAll('.course-card').forEach((card, i) => {
+    if (i === 0) card.setAttribute('tabindex', '0');
+  });
+
+  // Mode select — Enter on mode card triggers click
+  document.querySelectorAll('.mode-card').forEach(card => {
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); }
+    });
+  });
+
+  // Timer select — Enter on timer option triggers click
+  document.querySelectorAll('.timer-option').forEach(opt => {
+    opt.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); opt.click(); }
+    });
+  });
+
+  // Course cards — Enter triggers click
+  document.querySelectorAll('.course-card').forEach(card => {
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); }
+    });
+  });
+}
+
+// Focus correct element whenever a screen becomes visible
+function focusScreenElement(screenId) {
+  const focusMap = {
+    'screen-apikey':   () => $('apikey-input'),
+    'screen-course':   () => document.querySelector('.course-card'),
+    'screen-mode':     () => document.querySelector('.mode-card'),
+    'screen-timer':    () => document.querySelector('.timer-option'),
+    'screen-editor':   () => $('writing-area'),
+    'screen-end':      () => $('mark-response-btn'),
+    'screen-results':  () => document.querySelector('.criterion-card summary'),
+  };
+  const getFocus = focusMap[screenId];
+  if (getFocus) {
+    setTimeout(() => {
+      const el = getFocus();
+      if (el && typeof el.focus === 'function') el.focus();
+    }, 180);
+  }
+}
+
+/* ============================================================
+   100. CONFETTI ON PERFECT SCORE
+   ============================================================ */
+function maybeFireConfetti(totalScore, totalMax) {
+  if (totalScore !== totalMax || totalMax === 0) return;
+  const canvas = $('confetti-canvas');
+  if (!canvas) return;
+
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.style.display = 'block';
+
+  const ctx      = canvas.getContext('2d');
+  const COLOURS  = ['#c96a2e','#5c8c6a','#4a6fa5','#e8b86d','#d94f4f','#88bc94','#f0e9d8'];
+  const PIECES   = 140;
+  const pieces   = [];
+
+  for (let i = 0; i < PIECES; i++) {
+    pieces.push({
+      x:   Math.random() * canvas.width,
+      y:   Math.random() * -canvas.height,
+      w:   6 + Math.random() * 8,
+      h:   10 + Math.random() * 8,
+      r:   Math.random() * Math.PI * 2,
+      dr:  (Math.random() - 0.5) * 0.15,
+      dy:  3 + Math.random() * 4,
+      dx:  (Math.random() - 0.5) * 2,
+      col: COLOURS[Math.floor(Math.random() * COLOURS.length)],
+      opacity: 1
+    });
+  }
+
+  let frame = 0;
+  const MAX_FRAMES = 200;
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    pieces.forEach(p => {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.opacity);
+      ctx.fillStyle   = p.col;
+      ctx.translate(p.x + p.w / 2, p.y + p.h / 2);
+      ctx.rotate(p.r);
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+      p.y  += p.dy;
+      p.x  += p.dx;
+      p.r  += p.dr;
+      if (frame > MAX_FRAMES * 0.6) p.opacity -= 0.018;
+    });
+    frame++;
+    if (frame < MAX_FRAMES) {
+      requestAnimationFrame(draw);
+    } else {
+      canvas.style.display = 'none';
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  requestAnimationFrame(draw);
+  showToast('Perfect score! Outstanding work. 🎉', 'success');
+}
+
+/* ============================================================
    36. INIT
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
-  initGlobalDarkMode();   // apply saved preference before anything renders
+  initGlobalDarkMode();
   initApiKeyScreen();
   initCourseSelect();
   initTextSetupModal();
@@ -3395,6 +3668,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initShortcutsModal();
   initDarkMode();
   initOnboarding();
+  initAutofocus();
 
   // Results screen listeners
   $('results-new-session-btn')?.addEventListener('click', resetToStart);
@@ -3405,5 +3679,5 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   showScreen('screen-apikey');
-  setTimeout(() => $('apikey-input')?.focus(), 300);
+  focusScreenElement('screen-apikey');
 });
