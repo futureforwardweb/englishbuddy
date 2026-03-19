@@ -3856,3 +3856,434 @@ kbd {
   border-radius: var(--r-lg);
 }
 .shortcuts-tip .icon { flex-shrink: 0; }
+
+/* ============================================================
+   77. DARK MODE
+   ============================================================ */
+[data-theme="dark"] {
+  /* Backgrounds */
+  --bg:             #1a1714;
+  --bg-warm:        #201d19;
+  --bg-card:        #252119;
+  --bg-card-hover:  #2c2820;
+  --bg-sunken:      #161310;
+  --bg-deep:        #0f0d0b;
+
+  /* Ink — inverted to light tones */
+  --ink:            #f0e9d8;
+  --ink-mid:        #d4c9b0;
+  --ink-soft:       #b5a48d;
+  --ink-muted:      #8c7a62;
+  --ink-ghost:      #5e5040;
+  --ink-rule:       #332d25;
+
+  /* Accent — slightly brighter for dark bg */
+  --accent:         #d97b3a;
+  --accent-light:   #e8924f;
+  --accent-pale:    rgba(217, 123, 58, 0.15);
+  --accent-glow:    rgba(217, 123, 58, 0.18);
+  --accent-glow-md: rgba(217, 123, 58, 0.30);
+
+  /* Sage */
+  --sage:           #6fa07a;
+  --sage-light:     #88bc94;
+  --sage-pale:      rgba(111, 160, 122, 0.15);
+
+  /* Blue */
+  --blue:           #6b92c4;
+  --blue-pale:      rgba(107, 146, 196, 0.15);
+
+  /* Semantic */
+  --danger:         #d94f4f;
+  --danger-bg:      rgba(217, 79, 79, 0.15);
+  --success:        #5a9e6a;
+  --success-bg:     rgba(90, 158, 106, 0.15);
+
+  /* Borders */
+  --border-default: 1.5px solid var(--ink-rule);
+  --border-accent:  1.5px solid var(--accent);
+  --border-card:    1.5px solid #2a2520;
+
+  /* Shadows — darker tint for dark bg */
+  --shadow-xs: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.35);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.4);
+  --shadow-xl: 0 24px 60px rgba(0,0,0,0.7);
+  --shadow-focus: 0 0 0 3px var(--accent-glow-md);
+}
+
+/* Dark mode body gradient */
+[data-theme="dark"] body {
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(217, 123, 58, 0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 90%, rgba(111, 160, 122, 0.04) 0%, transparent 60%);
+}
+
+/* Dark mode scrollbar */
+[data-theme="dark"] ::-webkit-scrollbar-track { background: var(--bg-sunken); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--ink-rule); }
+
+/* Dark mode topbar glass */
+[data-theme="dark"] .editor-topbar {
+  background: rgba(26, 23, 20, 0.94);
+  border-bottom-color: var(--ink-rule);
+}
+
+/* Dark mode bottombar glass */
+[data-theme="dark"] .editor-bottombar {
+  background: rgba(26, 23, 20, 0.96);
+  border-top-color: var(--ink-rule);
+}
+
+/* Dark mode writing area */
+[data-theme="dark"] .writing-area {
+  caret-color: var(--accent);
+}
+
+/* Dark mode suggestion card */
+[data-theme="dark"] .suggestion-card {
+  background: #2a2520;
+  border-color: var(--ink-rule);
+}
+[data-theme="dark"] .suggestion-card-actions { background: var(--bg-sunken); }
+
+/* Dark mode feedback widget */
+[data-theme="dark"] .feedback-widget {
+  background: #2a2520;
+  border-color: var(--ink-rule);
+}
+[data-theme="dark"] .feedback-widget-header { background: var(--bg-sunken); }
+
+/* Dark mode modal */
+[data-theme="dark"] .modal { background: #252119; border-color: #2a2520; }
+[data-theme="dark"] .modal-overlay { background: rgba(10,8,6,0.72); }
+
+/* Dark mode course/mode cards */
+[data-theme="dark"] .course-card,
+[data-theme="dark"] .mode-card { background: var(--bg-card); border-color: #2a2520; }
+
+/* Dark mode reading time overlay */
+[data-theme="dark"] .reading-time-overlay { background: var(--bg); }
+
+/* Dark mode argument mapper */
+[data-theme="dark"] .argument-mapper { background: var(--bg-card); border-color: var(--ink-rule); }
+[data-theme="dark"] .argument-mapper-header { background: var(--bg-sunken); }
+
+/* Dark mode terminology/starters drawer */
+[data-theme="dark"] .terminology-drawer,
+[data-theme="dark"] .starters-drawer {
+  background: var(--bg-card);
+  border-color: var(--ink-rule);
+}
+[data-theme="dark"] .terminology-drawer-header,
+[data-theme="dark"] .starters-drawer-header { background: var(--bg-sunken); }
+
+/* Dark mode results */
+[data-theme="dark"] .criterion-card { background: var(--bg-card); border-color: #2a2520; }
+[data-theme="dark"] .criterion-card-body { background: var(--bg-sunken); }
+
+/* Dark mode gate card */
+[data-theme="dark"] .gate-card { background: var(--bg-card); border-color: #2a2520; }
+
+/* Dark mode onboarding */
+[data-theme="dark"] .onboarding-card { background: #252119; border-color: #2a2520; }
+
+/* Dark mode topbar icon (moon → sun in dark) */
+[data-theme="dark"] .icon-moon { display: none; }
+.icon-sun { display: none; }
+[data-theme="dark"] .icon-sun { display: block; }
+
+/* Dark mode sentence variety bar */
+[data-theme="dark"] .sentence-variety-bar {
+  background: var(--bg-sunken);
+  border-top-color: var(--ink-rule);
+}
+
+/* Dark mode quote bank popup */
+[data-theme="dark"] .quote-bank-popup { background: var(--bg-card); border-color: #2a2520; }
+[data-theme="dark"] .quote-bank-header { background: var(--bg-sunken); }
+
+/* Dark mode scaffold panel */
+[data-theme="dark"] .scaffold-panel { border-top-color: var(--blue); }
+
+/* Dark mode shortcuts modal */
+[data-theme="dark"] .shortcuts-modal { background: #252119; }
+[data-theme="dark"] kbd { background: var(--bg-sunken); border-color: var(--ink-rule); color: var(--ink-soft); }
+
+/* ============================================================
+   73. SENTENCE STARTER BANK DRAWER
+   ============================================================ */
+.starters-drawer {
+  position: fixed;
+  top: 56px;
+  right: 0;
+  width: 300px;
+  height: calc(100vh - 56px);
+  background: var(--bg-card);
+  border-left: var(--border-default);
+  box-shadow: var(--shadow-lg);
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform var(--t-slow);
+}
+.starters-drawer.open { transform: translateX(0); }
+
+.starters-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-default);
+  background: var(--bg-warm);
+  flex-shrink: 0;
+}
+.starters-drawer-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.starters-drawer-close {
+  background: none;
+  border: none;
+  color: var(--ink-ghost);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 3px 6px;
+  border-radius: var(--r-sm);
+  transition: all var(--t-fast);
+}
+.starters-drawer-close:hover { background: var(--bg-sunken); color: var(--ink); }
+
+.starters-search-wrap { padding: var(--space-3) var(--space-4); flex-shrink: 0; }
+
+.starters-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Group heading inside starters list */
+.starters-group-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: var(--space-3) var(--space-1) var(--space-1);
+  margin-top: var(--space-2);
+}
+.starters-group-label:first-child { margin-top: 0; }
+
+.starter-item {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--t-fast);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.875rem;
+  color: var(--ink);
+  line-height: 1.5;
+  position: relative;
+}
+.starter-item:hover {
+  background: var(--accent-pale);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.starter-item::after {
+  content: '↵';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  color: var(--ink-ghost);
+  opacity: 0;
+  font-style: normal;
+  transition: opacity var(--t-fast);
+}
+.starter-item:hover::after { opacity: 1; }
+
+/* Dark mode starters */
+[data-theme="dark"] .starters-drawer { background: var(--bg-card); border-color: var(--ink-rule); }
+[data-theme="dark"] .starters-drawer-header { background: var(--bg-sunken); }
+
+/* ============================================================
+   SCAFFOLDED BLUEPRINT PANEL
+   ============================================================ */
+.scaffold-panel {
+  background: var(--bg-card);
+  border-top: 2px solid var(--blue, #4a6fa5);
+  display: none;
+}
+.scaffold-panel.visible { display: block; }
+
+.blueprint-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-8);
+  background: var(--blue-pale, rgba(74,111,165,0.08));
+  border-bottom: 1px solid rgba(74,111,165,0.15);
+  max-width: 820px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.blueprint-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--blue, #4a6fa5);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.blueprint-badge::before {
+  content: '';
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--blue, #4a6fa5);
+}
+
+.blueprint-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-ghost);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--r-md);
+  transition: all var(--t-fast);
+}
+.blueprint-toggle:hover { background: var(--bg-sunken); color: var(--ink); }
+
+.blueprint-body {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-8) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* Contention block */
+.blueprint-contention {
+  background: var(--bg-warm);
+  border-radius: var(--r-lg);
+  padding: var(--space-4) var(--space-5);
+  border-left: 3px solid var(--blue, #4a6fa5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.blueprint-contention-text {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--ink);
+  line-height: 1.65;
+  margin: 0;
+}
+
+/* Paragraph cards grid */
+.blueprint-paras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.blueprint-para-card {
+  background: var(--bg-warm);
+  border: var(--border-card);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.blueprint-para-num {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--blue, #4a6fa5);
+  background: rgba(74,111,165,0.07);
+  padding: 6px 14px;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid rgba(74,111,165,0.12);
+}
+
+.blueprint-para-body {
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.blueprint-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.blueprint-label {
+  font-size: 0.63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-ghost);
+}
+.blueprint-label.concept { color: var(--sage); }
+.blueprint-label.angle   { color: var(--accent); }
+.blueprint-label.quote   { color: var(--blue, #4a6fa5); }
+
+.blueprint-val {
+  font-size: 0.84rem;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+/* Tips row */
+.blueprint-tips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.blueprint-tip {
+  font-size: 0.84rem;
+  color: var(--ink-muted);
+  line-height: 1.6;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--r-md);
+  background: var(--bg-sunken);
+  border-left: 3px solid transparent;
+}
+.blueprint-tip strong { color: var(--ink); }
+.blueprint-tip--intro { border-left-color: var(--sage); }
+.blueprint-tip--conc  { border-left-color: var(--accent); }
+.blueprint-tip--warn  { border-left-color: var(--danger); background: var(--danger-bg); }
+
+/* Dark mode blueprint */
+[data-theme="dark"] .blueprint-para-card { background: var(--bg-sunken); border-color: var(--ink-rule); }
+[data-theme="dark"] .blueprint-contention { background: var(--bg-sunken); }
+[data-theme="dark"] .blueprint-tip { background: var(--bg-deep); }
