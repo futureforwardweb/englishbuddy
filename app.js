@@ -552,13 +552,17 @@ async function startSession() {
   updateEditorBadges();
   showScreen('screen-editor');
 
-  // Hide/show quote bank button based on course
+  // Hide/show quote bank button
   const qbBtn = $('quote-bank-btn');
   if (qbBtn) qbBtn.style.display = STATE.course === 'literature' ? '' : 'none';
 
-  // Show/hide question header
   $('question-header')?.classList.remove('visible');
   $('stimulus-header')?.classList.remove('visible');
+
+  // Always init editor events and word count first so the screen isn't blank
+  initEditorEvents();
+  updateWordCount();
+  initComplexityAnalyser();
 
   if (STATE.mode === 'freewrite') {
     initStopwatch();
@@ -567,30 +571,67 @@ async function startSession() {
     if (area && draft) area.innerText = draft;
     startFreeWritingReview();
     startAutosave();
-  } else {
-    // Practice, scaffolded, intro — show question header
-    $('question-header')?.classList.add('visible');
-
-    // Reading time first (if enabled and not intro)
-    if (STATE.readingTimeEnabled && STATE.mode !== 'intro') {
-      await generateQuestionQuietly();
-      startReadingTime();
-    } else {
-      if (STATE.mode === 'intro') initCountdown(STATE.timerDuration * 60);
-      else initCountdown(STATE.timerDuration * 60);
-      if (STATE.course === 'english' && STATE.section === 'comprehending') {
-        $('question-header')?.classList.remove('visible');
-        $('stimulus-header')?.classList.add('visible');
-        await generateStimulusContent();
-      } else {
-        await generateQuestion();
-      }
-    }
+    showArgumentMapperTab();
+    return;
   }
 
-  initEditorEvents();
-  updateWordCount();
-  initComplexityAnalyser();
+  // All timed modes — show question header with spinner immediately
+  $('question-header')?.classList.add('visible');
+  const genEl = $('question-generating');
+  if (genEl) { genEl.style.display = 'flex'; genEl.innerHTML = '<div class="generating-spinner"></div><span>Generating your question...</span>'; }
+  $('question-content')?.classList.remove('visible');
+
+  // Generate question (always await before showing anything)
+  await generateQuestionQuietly();
+
+  if (STATE.course === 'english' && STATE.section === 'comprehending') {
+    $('question-header')?.classList.remove('visible');
+    $('stimulus-header')?.classList.add('visible');
+    await generateStimulusContent();
+    initCountdown(STATE.timerDuration * 60);
+    startAutosave();
+    showArgumentMapperTab();
+    return;
+  }
+
+  // Show question content
+  if (genEl) genEl.style.display = 'none';
+  $('question-content')?.classList.add('visible');
+  const textEl = $('question-text');
+  if (textEl && STATE.currentQuestion) textEl.textContent = STATE.currentQuestion;
+
+  // Scaffolded — show scaffold panel immediately, no reading time dependency
+  if (STATE.mode === 'scaffolded' && STATE.scaffoldData) {
+    renderScaffoldPanel();
+  }
+
+  // Show regen + start buttons unless intro mode (auto-locks)
+  const actionsEl = $('question-actions');
+  if (actionsEl) actionsEl.classList.remove('locked');
+
+  if (STATE.mode === 'intro') {
+    // Intro: auto-lock and start immediately
+    STATE.questionLocked = true;
+    actionsEl?.classList.add('locked');
+    initCountdown(STATE.timerDuration * 60);
+    startAutosave();
+    $('writing-area')?.focus();
+    showArgumentMapperTab();
+    return;
+  }
+
+  // Reading time (practice + scaffolded only, if enabled)
+  if (STATE.readingTimeEnabled) {
+    startReadingTime();
+  } else {
+    // No reading time — show argument mapper then let user click start
+    showArgumentMapper();
+  }
+
+  // Wire up question buttons
+  $('question-regenerate')?.addEventListener('click', handleRegenQuestion, { once: true });
+  $('question-start')?.addEventListener('click', lockAndStartWriting, { once: true });
+
   showArgumentMapperTab();
 }
 
@@ -687,7 +728,7 @@ function endReadingTime() {
   overlay?.classList.remove('visible');
   overlay?.setAttribute('aria-hidden', 'true');
 
-  // Show argument mapper
+  // Show argument mapper, which then calls afterArgumentMap on close/save
   showArgumentMapper();
 }
 
@@ -729,26 +770,39 @@ function showArgumentMapper() {
 }
 
 function afterArgumentMap() {
-  // Start timer and writing
-  if (STATE.mode !== 'freewrite') {
-    initCountdown(STATE.timerDuration * 60);
+  if (STATE.mode !== 'freewrite' && !STATE.questionLocked) {
+    // Timer only starts when user clicks Start Writing — don't auto-start here
+    // Just ensure autosave is running
     startAutosave();
   }
 
-  // Show scaffold if scaffolded mode
   if (STATE.mode === 'scaffolded' && STATE.scaffoldData) {
     renderScaffoldPanel();
   }
 
-  // Show question content
-  const genEl     = $('question-generating');
+  // Ensure question is visible
+  const genEl = $('question-generating');
   const contentEl = $('question-content');
-  const textEl    = $('question-text');
-  if (genEl)     genEl.style.display = 'none';
+  const textEl = $('question-text');
+  if (genEl) genEl.style.display = 'none';
   if (contentEl) contentEl.classList.add('visible');
   if (textEl && STATE.currentQuestion) textEl.textContent = STATE.currentQuestion;
-  $('question-actions')?.classList.add('locked');
 
+  // Make sure start button is wired — remove any old listener first
+  const startBtn = $('question-start');
+  const regenBtn = $('question-regenerate');
+  if (startBtn) {
+    const newStart = startBtn.cloneNode(true);
+    startBtn.parentNode?.replaceChild(newStart, startBtn);
+    newStart.addEventListener('click', lockAndStartWriting, { once: true });
+  }
+  if (regenBtn) {
+    const newRegen = regenBtn.cloneNode(true);
+    regenBtn.parentNode?.replaceChild(newRegen, regenBtn);
+    newRegen.addEventListener('click', handleRegenQuestion, { once: true });
+  }
+
+  $('question-actions')?.classList.remove('locked');
   $('writing-area')?.focus();
 }
 
@@ -876,7 +930,9 @@ async function handleRegenQuestion() {
 function lockAndStartWriting() {
   STATE.questionLocked = true;
   $('question-actions')?.classList.add('locked');
-  initCountdown(STATE.timerDuration * 60);
+  // timerDuration must be set — fallback to 45 if somehow null
+  const duration = STATE.timerDuration || 45;
+  initCountdown(duration * 60);
   startAutosave();
   $('writing-area')?.focus();
 }
