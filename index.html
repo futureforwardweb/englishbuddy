@@ -105,15 +105,10 @@
               <div class="course-card-body">
                 <h3 class="course-card-title">English Literature</h3>
                 <p class="course-card-subtitle">ATAR · WACE</p>
-                <p class="course-card-desc">
-                  Text-based analysis, critical readings, essay response to studied works.
-                </p>
+                <p class="course-card-desc">Text-based analysis, critical readings, essay response to studied works.</p>
                 <ul class="course-card-tags">
-                  <li class="tag">Task 1</li>
-                  <li class="tag">Task 2</li>
-                  <li class="tag">Task 3</li>
-                  <li class="tag">Ideology</li>
-                  <li class="tag">Intertextuality</li>
+                  <li class="tag">Task 1</li><li class="tag">Task 2</li><li class="tag">Task 3</li>
+                  <li class="tag">Ideology</li><li class="tag">Intertextuality</li>
                 </ul>
               </div>
               <div class="course-card-arrow" aria-hidden="true">→</div>
@@ -126,19 +121,31 @@
               <div class="course-card-body">
                 <h3 class="course-card-title">English</h3>
                 <p class="course-card-subtitle">ATAR · WACE</p>
-                <p class="course-card-desc">
-                  Composing, responding and comprehending across a range of forms and contexts.
-                </p>
+                <p class="course-card-desc">Composing, responding and comprehending across a range of forms and contexts.</p>
                 <ul class="course-card-tags">
-                  <li class="tag">Composing</li>
-                  <li class="tag">Responding</li>
-                  <li class="tag">Comprehending</li>
+                  <li class="tag">Composing</li><li class="tag">Responding</li><li class="tag">Comprehending</li>
                 </ul>
               </div>
               <div class="course-card-arrow" aria-hidden="true">→</div>
             </div>
           </button>
 
+        </div>
+
+        <!-- Session History -->
+        <div class="session-history-section" id="session-history-section" style="display:none">
+          <div class="session-history-header">
+            <h3 class="session-history-title">Recent Sessions</h3>
+            <button class="btn btn-ghost btn-xs" id="clear-history-btn" type="button">Clear history</button>
+          </div>
+          <!-- Mark trajectory mini-chart -->
+          <div class="mark-trajectory-wrap" id="mark-trajectory-wrap" style="display:none">
+            <p class="trajectory-label">Mark trend</p>
+            <canvas id="mark-trajectory-chart" height="60"></canvas>
+          </div>
+          <div class="session-history-list" id="session-history-list">
+            <!-- populated by JS -->
+          </div>
         </div>
 
       </div>
@@ -202,11 +209,7 @@
               </div>
               <div class="mode-card-body">
                 <h3 class="mode-card-title">Practice Question</h3>
-                <p class="mode-card-desc">
-                  AI generates an exam-style question drawn from
-                  the past 5 years of WACE papers. Countdown timer.
-                  Full WACE marking at the end.
-                </p>
+                <p class="mode-card-desc">AI generates an exam-style question from the past 5 years of WACE papers. Full marking at the end.</p>
                 <div class="mode-card-detail">
                   <span class="detail-pill">AI Question</span>
                   <span class="detail-pill">Countdown</span>
@@ -216,11 +219,67 @@
             </div>
           </button>
 
+          <button class="mode-card" id="mode-scaffolded" data-mode="scaffolded" type="button">
+            <div class="mode-card-inner">
+              <div class="mode-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              </div>
+              <div class="mode-card-body">
+                <h3 class="mode-card-title">Scaffolded Practice</h3>
+                <p class="mode-card-desc">Question plus suggested analytical angles and concept reminders. Build up before going cold.</p>
+                <div class="mode-card-detail">
+                  <span class="detail-pill">Guided</span>
+                  <span class="detail-pill">Hints provided</span>
+                  <span class="detail-pill">Full marking</span>
+                </div>
+              </div>
+            </div>
+          </button>
+
+          <button class="mode-card" id="mode-intro" data-mode="intro" type="button">
+            <div class="mode-card-inner">
+              <div class="mode-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <div class="mode-card-body">
+                <h3 class="mode-card-title">Intro Challenge</h3>
+                <p class="mode-card-desc">8 minutes. Introduction only. Sharpens the highest-stakes part of your response.</p>
+                <div class="mode-card-detail">
+                  <span class="detail-pill">8 min</span>
+                  <span class="detail-pill">Intro only</span>
+                  <span class="detail-pill">Fast feedback</span>
+                </div>
+              </div>
+            </div>
+          </button>
+
         </div>
 
-      </div>
-    </div>
-    <!-- /screen-mode -->
+        <!-- Session options row -->
+        <div class="mode-options-row">
+          <div class="mode-option-toggle" id="reading-time-toggle-wrap">
+            <button class="toggle-btn active" id="reading-time-toggle" type="button" aria-pressed="true">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </button>
+            <div class="toggle-label-wrap">
+              <span class="toggle-label">Reading time</span>
+              <span class="toggle-hint">5 min before writing begins</span>
+            </div>
+          </div>
+
+          <div class="session-goal-wrap">
+            <span class="toggle-label">Session focus</span>
+            <select class="field-select session-goal-select" id="session-goal-select">
+              <option value="">No specific focus</option>
+              <option value="engagement">Engagement with the question</option>
+              <option value="syllabus_concepts">Course concepts</option>
+              <option value="textual_evidence">Textual evidence</option>
+              <option value="terminology">Critical terminology</option>
+              <option value="sophistication">Sophistication of ideas</option>
+              <option value="expression">Expression &amp; structure</option>
+            </select>
+          </div>
+        </div>
 
 
     <!-- ============================================================
@@ -330,8 +389,9 @@
           </div>
         </div>
 
-        <!-- Writing Area -->
+        <!-- Writing Area with complexity gutter -->
         <div class="writing-area-wrap" id="writing-area-wrap">
+          <div class="complexity-gutter" id="complexity-gutter" aria-hidden="true"></div>
           <div
             class="writing-area"
             id="writing-area"
@@ -373,6 +433,21 @@
           </span>
         </div>
         <div class="bottombar-right">
+          <!-- Argue other side — always visible -->
+          <button class="btn btn-ghost btn-sm" id="argue-other-side-btn" title="Generate a counter-argument to your current paragraph" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Counter
+          </button>
+          <!-- Quote bank — Literature only, hidden by JS for English -->
+          <button class="btn btn-ghost btn-sm" id="quote-bank-btn" title="Insert a quote from your quote bank" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>
+            Quotes
+          </button>
+          <!-- Term bank -->
+          <button class="btn btn-ghost btn-sm" id="terminology-btn" title="Open terminology bank" type="button">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            Terms
+          </button>
           <button class="btn btn-accent" id="ai-help-btn" type="button">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             Get AI Help
@@ -524,6 +599,15 @@
             </label>
           </div>
 
+          <div class="skills-panel-confidence" id="skills-panel-confidence">
+            <p class="confidence-label">How confident are you in this section?</p>
+            <div class="confidence-options">
+              <button class="confidence-btn" data-confidence="low" type="button">Low</button>
+              <button class="confidence-btn" data-confidence="medium" type="button">Medium</button>
+              <button class="confidence-btn active" data-confidence="high" type="button">High</button>
+            </div>
+          </div>
+
           <div class="skills-panel-footer">
             <button class="btn btn-ghost btn-sm" id="skills-cancel" type="button">Cancel</button>
             <button class="btn btn-primary" id="skills-analyse" type="button">
@@ -536,11 +620,80 @@
       </aside>
 
       <!-- AI Inline Suggestion Overlay -->
-      <div class="suggestion-overlay" id="suggestion-overlay" aria-live="polite">
-        <!-- Populated by JS — suggestion cards appear here positioned near selection -->
+      <div class="suggestion-overlay" id="suggestion-overlay" aria-live="polite"></div>
+
+      <!-- Reading Time Overlay -->
+      <div class="reading-time-overlay" id="reading-time-overlay" aria-hidden="true">
+        <div class="reading-time-inner">
+          <div class="reading-time-badge">Reading Time</div>
+          <div class="reading-time-clock" id="reading-time-clock">05:00</div>
+          <p class="reading-time-hint">Read the question. Plan your response. Writing begins automatically.</p>
+          <div class="reading-time-notes-wrap">
+            <label class="reading-time-notes-label" for="reading-time-notes">Planning notes (not saved)</label>
+            <textarea id="reading-time-notes" class="reading-time-notes" placeholder="Jot ideas, key concepts, argument structure..."></textarea>
+          </div>
+          <button class="btn btn-primary" id="reading-time-skip" type="button">Skip to Writing →</button>
+        </div>
       </div>
 
-      <!-- Bottom Feedback Widget — overall AI assessment -->
+      <!-- Argument Mapper (pre-writing planner) -->
+      <div class="argument-mapper" id="argument-mapper" aria-hidden="true">
+        <div class="argument-mapper-header">
+          <span class="argument-mapper-title">Argument Map</span>
+          <button class="argument-mapper-toggle" id="argument-mapper-close" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="argument-mapper-body">
+          <div class="mapper-field">
+            <label class="mapper-label">Contention</label>
+            <textarea class="mapper-input" id="map-contention" rows="2" placeholder="Your main argument in one sentence..."></textarea>
+          </div>
+          <div class="mapper-field">
+            <label class="mapper-label">Para 1 — Claim</label>
+            <input type="text" class="mapper-input-sm" id="map-p1" placeholder="First analytical claim...">
+          </div>
+          <div class="mapper-field">
+            <label class="mapper-label">Para 2 — Claim</label>
+            <input type="text" class="mapper-input-sm" id="map-p2" placeholder="Second analytical claim...">
+          </div>
+          <div class="mapper-field">
+            <label class="mapper-label">Para 3 — Claim</label>
+            <input type="text" class="mapper-input-sm" id="map-p3" placeholder="Third analytical claim...">
+          </div>
+        </div>
+        <div class="argument-mapper-footer">
+          <button class="btn btn-primary btn-sm btn-full" id="argument-mapper-save" type="button">Save map &amp; start writing</button>
+        </div>
+      </div>
+
+      <!-- Terminology Bank Drawer -->
+      <aside class="terminology-drawer" id="terminology-drawer" aria-hidden="true" aria-label="Terminology bank">
+        <div class="terminology-drawer-header">
+          <span class="terminology-drawer-title">Term Bank</span>
+          <button class="terminology-drawer-close" id="terminology-drawer-close" type="button" aria-label="Close">✕</button>
+        </div>
+        <div class="terminology-search-wrap">
+          <input type="text" class="terminology-search" id="terminology-search" placeholder="Search terms..." autocomplete="off">
+        </div>
+        <div class="terminology-list" id="terminology-list">
+          <!-- populated by JS -->
+        </div>
+      </aside>
+
+      <!-- Quote Bank Popup (Literature only) -->
+      <div class="quote-bank-popup" id="quote-bank-popup" aria-hidden="true">
+        <div class="quote-bank-header">
+          <span class="quote-bank-title">Quote Bank</span>
+          <button class="quote-bank-close" id="quote-bank-close" type="button">✕</button>
+        </div>
+        <input type="text" class="quote-bank-search" id="quote-bank-search" placeholder="Search quotes or themes...">
+        <div class="quote-bank-list" id="quote-bank-list">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <!-- Bottom Feedback Widget -->
       <div class="feedback-widget" id="feedback-widget" aria-live="polite" aria-hidden="true">
         <div class="feedback-widget-header">
           <div class="feedback-widget-title-row">
@@ -549,9 +702,7 @@
             <span class="feedback-widget-skill-tag" id="feedback-widget-skill"></span>
           </div>
           <button class="feedback-widget-close" id="feedback-widget-close" type="button" aria-label="Close feedback">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
         <div class="feedback-widget-body">
@@ -611,6 +762,17 @@
             <div class="end-action-body">
               <h3 class="end-action-title">Download & Exit</h3>
               <p class="end-action-desc">Save your response as a .txt file and return to the start.</p>
+            </div>
+            <div class="end-action-arrow" aria-hidden="true">→</div>
+          </button>
+
+          <button class="end-action-card" id="try-again-btn" type="button" style="display:none">
+            <div class="end-action-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.79"/></svg>
+            </div>
+            <div class="end-action-body">
+              <h3 class="end-action-title">Try Again</h3>
+              <p class="end-action-desc">Same question, fresh attempt. See if your mark improves.</p>
             </div>
             <div class="end-action-arrow" aria-hidden="true">→</div>
           </button>
@@ -720,9 +882,17 @@
 
           <!-- Results Actions -->
           <div class="results-actions">
+            <button class="btn btn-ghost" id="results-try-again-btn" type="button" style="display:none">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.79"/></svg>
+              Try again
+            </button>
+            <button class="btn btn-ghost" id="results-print-btn" type="button">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              Print / Save PDF
+            </button>
             <button class="btn btn-ghost" id="results-download-btn" type="button">
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Download full report
+              Download report
             </button>
             <button class="btn btn-primary" id="results-new-session-btn" type="button">
               New Session →
