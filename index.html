@@ -435,19 +435,32 @@
             <svg class="icon icon-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             <span id="autosave-text">Draft saved</span>
           </span>
+          <!-- Quote usage tracker — Literature only -->
+          <span class="quote-tracker" id="quote-tracker" style="display:none" title="Quotes from your bank used in this response">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>
+            <span id="quote-tracker-text">0 quotes used</span>
+          </span>
+          <!-- Version history restore -->
+          <div class="version-restore-wrap" id="version-restore-wrap" style="display:none">
+            <select class="version-select" id="version-select" title="Restore an earlier version">
+              <option value="">Restore version...</option>
+            </select>
+          </div>
         </div>
         <div class="bottombar-right">
-          <!-- Argue other side — always visible -->
+          <!-- Time pressure indicator -->
+          <span class="time-pressure-indicator" id="time-pressure-indicator" style="display:none">
+            <span class="time-pressure-dot" id="time-pressure-dot"></span>
+            <span id="time-pressure-text"></span>
+          </span>
           <button class="btn btn-ghost btn-sm" id="argue-other-side-btn" title="Generate a counter-argument to your current paragraph" type="button">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             Counter
           </button>
-          <!-- Quote bank — Literature only, hidden by JS for English -->
           <button class="btn btn-ghost btn-sm" id="quote-bank-btn" title="Insert a quote from your quote bank" type="button">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/></svg>
             Quotes
           </button>
-          <!-- Term bank -->
           <button class="btn btn-ghost btn-sm" id="terminology-btn" title="Open terminology bank" type="button">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
             Terms
@@ -458,6 +471,15 @@
           </button>
         </div>
       </footer>
+
+      <!-- Synonym popup — appears on double-click -->
+      <div class="synonym-popup" id="synonym-popup" aria-hidden="true">
+        <div class="synonym-popup-header">
+          <span class="synonym-popup-word" id="synonym-popup-word"></span>
+          <button class="synonym-popup-close" id="synonym-popup-close" type="button">✕</button>
+        </div>
+        <div class="synonym-list" id="synonym-list"></div>
+      </div>
 
       <!-- AI Help Floating Toolbar (appears on text selection) -->
       <div class="ai-toolbar" id="ai-toolbar" role="toolbar" aria-label="AI writing assistance">
@@ -882,6 +904,12 @@
               <div class="topband-text" id="topband-text"></div>
               <div class="topband-annotations" id="topband-annotations"></div>
             </div>
+          </section>
+
+          <!-- Vocabulary Report -->
+          <section class="results-vocab" id="results-vocab" style="display:none">
+            <h3 class="results-section-title">Vocabulary Report</h3>
+            <div class="vocab-report-body" id="vocab-report-body"></div>
           </section>
 
           <!-- Results Actions -->
