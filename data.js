@@ -1108,3 +1108,74 @@ const ENGLISH_TERMINOLOGY = [
   { term: "context of production", definition: "The circumstances in which a text was created, including historical, social and cultural factors." },
   { term: "context of reception", definition: "The circumstances in which a text is read or viewed, which shape how audiences interpret it." }
 ];
+
+/* ============================================================
+   SYNONYM / REGISTER UPGRADE BANK (Feature 32)
+   Maps common weak words → higher register alternatives
+   ============================================================ */
+const SYNONYM_BANK = {
+  // Verbs — showing/demonstrating
+  'shows':      [{ word: 'delineates',   register: 'analytical' }, { word: 'illuminates', register: 'analytical' }, { word: 'underscores', register: 'critical' }],
+  'show':       [{ word: 'delineate',    register: 'analytical' }, { word: 'illuminate',  register: 'analytical' }, { word: 'underscore',  register: 'critical' }],
+  'reveals':    [{ word: 'exposes',      register: 'critical'   }, { word: 'lays bare',   register: 'critical'   }, { word: 'foregrounds', register: 'literary' }],
+  'reveal':     [{ word: 'expose',       register: 'critical'   }, { word: 'foreground',  register: 'literary'   }, { word: 'elucidate',   register: 'analytical' }],
+  'uses':       [{ word: 'employs',      register: 'analytical' }, { word: 'deploys',     register: 'analytical' }, { word: 'harnesses',   register: 'critical' }],
+  'use':        [{ word: 'employ',       register: 'analytical' }, { word: 'deploy',      register: 'analytical' }, { word: 'utilise',     register: 'formal' }],
+  'creates':    [{ word: 'constructs',   register: 'critical'   }, { word: 'establishes', register: 'analytical' }, { word: 'engenders',   register: 'literary' }],
+  'create':     [{ word: 'construct',    register: 'critical'   }, { word: 'establish',   register: 'analytical' }, { word: 'engender',    register: 'literary' }],
+  'shows that': [{ word: 'demonstrates', register: 'analytical' }, { word: 'suggests',    register: 'critical'   }, { word: 'implies',     register: 'nuanced' }],
+  'suggests':   [{ word: 'intimates',    register: 'literary'   }, { word: 'insinuates',  register: 'critical'   }, { word: 'posits',      register: 'analytical' }],
+  'highlights': [{ word: 'foregrounds',  register: 'literary'   }, { word: 'accentuates', register: 'analytical' }, { word: 'draws attention to', register: 'analytical' }],
+  'highlight':  [{ word: 'foreground',   register: 'literary'   }, { word: 'accentuate',  register: 'analytical' }, { word: 'emphasise',   register: 'formal' }],
+  'looks at':   [{ word: 'examines',     register: 'analytical' }, { word: 'interrogates', register: 'critical'  }, { word: 'scrutinises', register: 'analytical' }],
+  'talks about':[{ word: 'addresses',    register: 'analytical' }, { word: 'explores',    register: 'analytical' }, { word: 'engages with', register: 'critical' }],
+  'makes':      [{ word: 'constructs',   register: 'critical'   }, { word: 'fashions',    register: 'literary'   }, { word: 'fabricates',  register: 'critical' }],
+  'shows us':   [{ word: 'presents',     register: 'analytical' }, { word: 'offers',      register: 'critical'   }, { word: 'affords',     register: 'literary' }],
+  // Nouns
+  'idea':       [{ word: 'notion',       register: 'formal'     }, { word: 'premise',     register: 'analytical' }, { word: 'proposition', register: 'academic' }],
+  'ideas':      [{ word: 'notions',      register: 'formal'     }, { word: 'premises',    register: 'analytical' }, { word: 'ideologies',  register: 'critical' }],
+  'theme':      [{ word: 'preoccupation', register: 'literary'  }, { word: 'motif',       register: 'literary'   }, { word: 'concern',     register: 'critical' }],
+  'society':    [{ word: 'social milieu', register: 'critical'  }, { word: 'cultural context', register: 'analytical' }, { word: 'the broader polity', register: 'academic' }],
+  'character':  [{ word: 'protagonist',  register: 'literary'   }, { word: 'figure',      register: 'literary'   }, { word: 'persona',     register: 'critical' }],
+  'reader':     [{ word: 'audience',     register: 'analytical' }, { word: 'the implied reader', register: 'literary' }, { word: 'the readership', register: 'formal' }],
+  'book':       [{ word: 'text',         register: 'academic'   }, { word: 'work',        register: 'formal'     }, { word: 'narrative',   register: 'literary' }],
+  'story':      [{ word: 'narrative',    register: 'literary'   }, { word: 'text',        register: 'academic'   }, { word: 'diegesis',    register: 'advanced' }],
+  'feelings':   [{ word: 'affect',       register: 'academic'   }, { word: 'interiority', register: 'literary'   }, { word: 'emotional register', register: 'critical' }],
+  // Adjectives
+  'bad':        [{ word: 'pernicious',   register: 'formal'     }, { word: 'insidious',   register: 'critical'   }, { word: 'inimical',    register: 'academic' }],
+  'good':       [{ word: 'salutary',     register: 'formal'     }, { word: 'efficacious', register: 'academic'   }, { word: 'propitious',  register: 'literary' }],
+  'important':  [{ word: 'significant',  register: 'analytical' }, { word: 'pivotal',     register: 'analytical' }, { word: 'seminal',     register: 'academic' }],
+  'big':        [{ word: 'substantial',  register: 'formal'     }, { word: 'considerable', register: 'analytical' }, { word: 'pronounced',  register: 'academic' }],
+  'different':  [{ word: 'divergent',    register: 'analytical' }, { word: 'disparate',   register: 'academic'   }, { word: 'antithetical', register: 'critical' }],
+  'similar':    [{ word: 'analogous',    register: 'academic'   }, { word: 'commensurate', register: 'formal'    }, { word: 'consonant',   register: 'critical' }],
+};
+
+/* ============================================================
+   WEAK WORD LIST (Feature 34 — Vocab report)
+   ============================================================ */
+const WEAK_WORDS = [
+  { word: 'shows',    alternatives: ['demonstrates','delineates','illuminates','underscores'] },
+  { word: 'uses',     alternatives: ['employs','deploys','harnesses','utilises'] },
+  { word: 'creates',  alternatives: ['constructs','engenders','establishes','fashions'] },
+  { word: 'is',       alternatives: null }, // structural — flagged by count only
+  { word: 'has',      alternatives: null },
+  { word: 'makes',    alternatives: ['constructs','fashions','fabricates','renders'] },
+  { word: 'gets',     alternatives: ['obtains','acquires','attains','secures'] },
+  { word: 'thing',    alternatives: ['element','feature','aspect','component'] },
+  { word: 'things',   alternatives: ['elements','features','aspects','components'] },
+  { word: 'very',     alternatives: ['particularly','notably','markedly','considerably'] },
+  { word: 'really',   alternatives: ['fundamentally','genuinely','demonstrably','particularly'] },
+  { word: 'also',     alternatives: ['furthermore','moreover','additionally','equally'] },
+  { word: 'but',      alternatives: ['however','yet','nonetheless','conversely'] },
+  { word: 'because',  alternatives: ['given that','since','as a consequence of','insofar as'] },
+  { word: 'so',       alternatives: ['consequently','therefore','thus','as a result'] },
+  { word: 'a lot',    alternatives: ['considerably','markedly','extensively','substantially'] },
+  { word: 'looks at', alternatives: ['examines','interrogates','scrutinises','explores'] },
+  { word: 'talks',    alternatives: ['addresses','explores','articulates','conveys'] },
+  { word: 'feels',    alternatives: ['experiences','registers','perceives','apprehends'] },
+  { word: 'good',     alternatives: ['effective','salient','compelling','significant'] },
+  { word: 'bad',      alternatives: ['pernicious','insidious','detrimental','inimical'] },
+  { word: 'important',alternatives: ['significant','pivotal','crucial','consequential'] },
+  { word: 'idea',     alternatives: ['notion','premise','proposition','conceptualisation'] },
+  { word: 'shows that',alternatives:['demonstrates','suggests','implies','intimates'] },
+];
