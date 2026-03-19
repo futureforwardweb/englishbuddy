@@ -388,7 +388,38 @@ function escapeHtml(str) {
 }
 
 /* ============================================================
-   STREAMING TEXT UTILITY
+   AI WRITER LOADING STATE — highlights selected text orange
+   while Gemini is processing
+   ============================================================ */
+let _highlightRange = null;
+let _highlightSpan  = null;
+
+function highlightSelectionLoading() {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed) return;
+  try {
+    const range = sel.getRangeAt(0);
+    _highlightRange = range.cloneRange();
+    const span = document.createElement('span');
+    span.className = 'selection-loading-highlight';
+    span.id = 'selection-loading-highlight';
+    range.surroundContents(span);
+    _highlightSpan = span;
+    sel.removeAllRanges();
+  } catch (e) { /* selection spans multiple nodes — skip highlight */ }
+}
+
+function removeHighlightLoading() {
+  const span = $('selection-loading-highlight') || _highlightSpan;
+  if (span && span.parentNode) {
+    const parent = span.parentNode;
+    while (span.firstChild) parent.insertBefore(span.firstChild, span);
+    parent.removeChild(span);
+    parent.normalize();
+  }
+  _highlightSpan  = null;
+  _highlightRange = null;
+}
    Reveals text word-by-word into an element.
    Returns a cancel function.
    ============================================================ */
@@ -970,13 +1001,28 @@ async function handleSkillsAnalyse() {
     return;
   }
 
+  // Guard — selection too large
+  const selText = STATE.currentSelection?.text || '';
+  if (selText.length > 400) {
+    showToast('Selection too long — highlight a single sentence or clause for best results.', 'error');
+    return;
+  }
+  if (selText.length < 10) {
+    showToast('Please highlight at least a few words.', 'error');
+    return;
+  }
+
   const btn = $('skills-analyse');
   setBtnLoading(btn, true);
+  closeSkillsPanel();
+
+  // Apply orange loading highlight on the selected text
+  highlightSelectionLoading();
 
   try {
-    await runAiWriter(STATE.currentSelection.text, checkedSkills);
-    closeSkillsPanel();
+    await runAiWriter(selText, checkedSkills);
   } catch (err) {
+    removeHighlightLoading();
     showToast(`AI Writer error: ${err.message}`, 'error');
   } finally {
     setBtnLoading(btn, false);
@@ -1040,24 +1086,30 @@ function displayInlineSuggestion(originalText, aiResponse, skills) {
   const overlay = $('suggestion-overlay');
   if (!overlay) return;
 
+  // Remove loading highlight now that we have a response
+  removeHighlightLoading();
+
   // ── Parse AI response sections ────────────────────────────
   const assessmentMatch  = aiResponse.match(/ASSESSMENT:\s*([\s\S]*?)(?=WHY THIS MATTERS:|SUGGESTED REWRITE:|EXPLANATION:|$)/i);
   const whyMatch         = aiResponse.match(/WHY THIS MATTERS:\s*([\s\S]*?)(?=SUGGESTED REWRITE:|EXPLANATION:|$)/i);
   const rewriteMatch     = aiResponse.match(/SUGGESTED REWRITE:\s*([\s\S]*?)(?=EXPLANATION:|WHY THIS MATTERS:|$)/i);
   const explanationMatch = aiResponse.match(/EXPLANATION:\s*([\s\S]*?)$/i);
 
-  const assessment  = assessmentMatch?.[1]?.trim()  || '';
-  const why         = whyMatch?.[1]?.trim()          || explanationMatch?.[1]?.trim() || '';
-  // If rewrite wasn't parsed cleanly, use the raw response minus the ASSESSMENT block
-  let rewrite = rewriteMatch?.[1]?.trim() || '';
+  const assessment = (assessmentMatch?.[1] || '').trim();
+  const why        = (whyMatch?.[1] || explanationMatch?.[1] || '').trim();
+
+  // Robust rewrite extraction
+  let rewrite = (rewriteMatch?.[1] || '').trim();
   if (!rewrite) {
-    // fallback: everything after SUGGESTED REWRITE: or the whole response
-    const fb = aiResponse.replace(/ASSESSMENT:[\s\S]*?(?=SUGGESTED REWRITE:|$)/i, '')
-                          .replace(/SUGGESTED REWRITE:/i, '')
-                          .replace(/EXPLANATION:[\s\S]*/i, '')
-                          .trim();
-    rewrite = fb || aiResponse;
+    // Fallback: strip known sections and take what's left
+    rewrite = aiResponse
+      .replace(/ASSESSMENT:[\s\S]*?(?=SUGGESTED REWRITE:|WHY THIS MATTERS:|$)/i, '')
+      .replace(/SUGGESTED REWRITE:/i, '')
+      .replace(/WHY THIS MATTERS:[\s\S]*/i, '')
+      .replace(/EXPLANATION:[\s\S]*/i, '')
+      .trim();
   }
+  if (!rewrite) rewrite = aiResponse.trim();
 
   const skillLabel = skills.map(s => {
     const defs = STATE.course === 'literature'
@@ -1066,78 +1118,75 @@ function displayInlineSuggestion(originalText, aiResponse, skills) {
     return defs[s]?.label || s;
   }).join(', ');
 
-  // ── Remove any previous suggestion cards ─────────────────
+  // ── Remove any existing suggestion cards ─────────────────
   overlay.querySelectorAll('.suggestion-card').forEach(c => c.remove());
 
-  // ── Build the popup card ──────────────────────────────────
+  // ── Build popup card — REWRITE ONLY ──────────────────────
+  // The card is small: skill tag + streaming rewrite + Accept/Dismiss
+  // Assessment goes ONLY to the bottom widget — never in this card
   const card = document.createElement('div');
   card.className = 'suggestion-card';
-
-  // Mini explanation — first sentence of why, or first 120 chars of assessment
-  const miniExplanation = why
-    ? why.split(/[.!?]/)[0].trim() + '.'
-    : assessment.slice(0, 120) + (assessment.length > 120 ? '...' : '');
-
   card.innerHTML = `
-    <span class="suggestion-card-skill">${escapeHtml(skillLabel)}</span>
+    <div class="suggestion-card-header">
+      <span class="suggestion-card-skill">${escapeHtml(skillLabel)}</span>
+      <button class="suggestion-card-x" aria-label="Close">✕</button>
+    </div>
+    <p class="suggestion-card-label">Suggested rewrite:</p>
     <p class="suggestion-card-new" id="sc-rewrite-text"></p>
-    <p class="suggestion-card-why">${escapeHtml(miniExplanation)}</p>
     <div class="suggestion-card-actions">
       <button class="btn btn-accent btn-xs accept-btn" type="button">Accept</button>
       <button class="btn btn-ghost btn-xs dismiss-btn" type="button">Dismiss</button>
     </div>
   `;
 
-  // ── Position ABOVE the selection, clamped to viewport ────
-  const sel = STATE.currentSelection?.range;
-  const CARD_W = 380;
-  const CARD_H = 200; // estimated — we don't know before render
-  const PAD    = 10;
+  // ── Position ABOVE selection, clamp to viewport ───────────
+  const CARD_W = 340;
+  const CARD_H = 180;
+  const PAD    = 12;
+  const sel    = STATE.currentSelection?.range;
+
+  card.style.width = `${CARD_W}px`;
 
   if (sel) {
     const rect = sel.getBoundingClientRect();
     let top  = rect.top - CARD_H - PAD;
     let left = rect.left + (rect.width / 2) - (CARD_W / 2);
-
     // Flip below if not enough room above
     if (top < PAD) top = rect.bottom + PAD;
-
-    // Clamp horizontally
+    // Clamp inside viewport
     left = Math.max(PAD, Math.min(left, window.innerWidth - CARD_W - PAD));
-    // Clamp vertically bottom edge
-    top  = Math.max(PAD, Math.min(top,  window.innerHeight - CARD_H - PAD));
-
+    top  = Math.max(PAD, Math.min(top,  window.innerHeight - CARD_H - 80));
     card.style.top  = `${top}px`;
     card.style.left = `${left}px`;
   } else {
-    card.style.top   = 'auto';
+    card.style.top    = 'auto';
     card.style.bottom = '160px';
     card.style.right  = '24px';
     card.style.left   = 'auto';
   }
 
-  // ── Wire up buttons ───────────────────────────────────────
+  // ── Wire buttons ──────────────────────────────────────────
+  const closeCard = () => { card.remove(); hideFeedbackWidget(); };
+
+  card.querySelector('.suggestion-card-x')?.addEventListener('click', closeCard);
+  card.querySelector('.dismiss-btn')?.addEventListener('click', closeCard);
   card.querySelector('.accept-btn')?.addEventListener('click', () => {
     replaceSelectedText(rewrite);
-    card.remove();
-    hideFeedbackWidget();
+    closeCard();
     showToast('Suggestion accepted.', 'success');
-  });
-
-  card.querySelector('.dismiss-btn')?.addEventListener('click', () => {
-    card.remove();
-    hideFeedbackWidget();
   });
 
   overlay.appendChild(card);
 
-  // ── Stream the rewrite into the card ─────────────────────
+  // ── Stream rewrite into the card, word by word ────────────
   const rewriteEl = card.querySelector('#sc-rewrite-text');
-  if (rewriteEl) streamText(rewriteEl, rewrite, 35);
+  if (rewriteEl) streamText(rewriteEl, rewrite, 32);
 
-  // ── Send full assessment to the bottom widget ─────────────
-  if (assessment) {
-    showFeedbackWidget(skillLabel, assessment, why);
+  // ── Send full assessment to bottom widget (separate) ──────
+  // Widget only appears if there is assessment content
+  const widgetText = assessment || why;
+  if (widgetText) {
+    showFeedbackWidget(skillLabel, widgetText, why && assessment ? why : '');
   }
 }
 
