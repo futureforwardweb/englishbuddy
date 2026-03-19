@@ -1,5 +1,5 @@
 /* ============================================================
-   SCRIPTSENSE — DATA.JS
+   SCRIPTSENSE — DATA.JS  v2.0  (apostrophe-safe build)
    All hardcoded syllabus content, past exam questions,
    marking keys, performance descriptors, and exemplars.
    Source: SCSA WACE ATAR | Bob Hawke College English Dept.
@@ -1188,11 +1188,11 @@ const SENTENCE_STARTERS = [
   {
     group: 'Introducing a reading',
     starters: [
-      'García Márquez constructs...',
+      'Garcia Marquez constructs...',
       'The text positions its reader to...',
       'Through the deployment of...',
       'A reading of this passage reveals...',
-      'The author's ideological investment in...',
+      'The author\'s ideological investment in...',
       'Viewing this text through a [X] lens exposes...',
       'A non-dominant reading of this moment suggests...',
       'When read against the grain, the text...',
@@ -1201,7 +1201,7 @@ const SENTENCE_STARTERS = [
   {
     group: 'Making a claim',
     starters: [
-      'Central to this text's ideology is...',
+      'Central to this text\'s ideology is...',
       'What is ideologically significant here is...',
       'The representation of [X] serves to naturalise...',
       'Crucially, this construction of [X] operates to...',
@@ -1227,7 +1227,7 @@ const SENTENCE_STARTERS = [
   {
     group: 'Analysing language',
     starters: [
-      'The connotations of "[word]" work to...',
+      'The connotations of [word] work to...',
       'The syntactic choice to [X] positions readers to...',
       'The juxtaposition of [X] and [Y] implies...',
       'The use of [technique] here serves to...',
@@ -1246,7 +1246,7 @@ const SENTENCE_STARTERS = [
       'Conversely, if we apply a postcolonial lens...',
       'A Marxist reading foregrounds...',
       'What is marginalised in this representation is...',
-      'The text's silencing of [X] is itself significant...',
+      'The text\'s silencing of [X] is itself significant...',
       'Reading against the dominant discourse here...',
     ]
   },
@@ -1254,7 +1254,7 @@ const SENTENCE_STARTERS = [
     group: 'Contextualising',
     starters: [
       'Writing in the context of [period/event], [author]...',
-      'The historical moment of [X] inflects this text's...',
+      'The historical moment of [X] inflects this text\'s...',
       'For a contemporary Australian reader...',
       'Produced in [context], this text reflects...',
       'The discourse of [X] was dominant at the time of...',
@@ -1265,7 +1265,7 @@ const SENTENCE_STARTERS = [
   {
     group: 'Concluding / synthesising',
     starters: [
-      'Ultimately, the text's ideological investment in...',
+      'Ultimately, the text\'s ideological investment in...',
       'The persistence of this representation suggests...',
       'What emerges from this reading is...',
       'Taken together, these textual choices demonstrate...',
