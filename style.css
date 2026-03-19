@@ -1649,7 +1649,7 @@ ul, ol { list-style: none; }
 }
 
 @keyframes cardPop {
-  from { opacity: 0; transform: scale(0.88) translateY(-4px); }
+  from { opacity: 0; transform: scale(0.88) translateY(4px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
@@ -1678,6 +1678,7 @@ ul, ol { list-style: none; }
   font-weight: 500;
   color: var(--ink);
   line-height: 1.55;
+  min-height: 1.2em; /* reserve space while streaming */
 }
 
 .suggestion-card-why {
@@ -1692,7 +1693,139 @@ ul, ol { list-style: none; }
 .suggestion-card-actions {
   display: flex;
   gap: var(--space-2);
+  padding-top: var(--space-1);
 }
+
+/* Streaming cursor — appended to element while text is streaming */
+.streaming::after {
+  content: '|';
+  display: inline-block;
+  color: var(--accent);
+  animation: cursorBlink 0.65s ease-in-out infinite;
+  margin-left: 1px;
+  font-weight: 300;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* ============================================================
+   BOTTOM FEEDBACK WIDGET
+   ============================================================ */
+.feedback-widget {
+  position: fixed;
+  bottom: 72px;             /* sits just above the bottom bar */
+  left: 50%;
+  transform: translateX(-50%) translateY(24px);
+  width: min(680px, calc(100vw - 32px));
+  background: var(--bg-card);
+  border: var(--border-card);
+  border-top: 3px solid var(--sage);
+  border-radius: var(--r-xl) var(--r-xl) var(--r-lg) var(--r-lg);
+  box-shadow: var(--shadow-xl);
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t-base), transform var(--t-spring);
+  overflow: hidden;
+}
+
+.feedback-widget.visible {
+  opacity: 1;
+  pointer-events: all;
+  transform: translateX(-50%) translateY(0);
+}
+
+.feedback-widget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: var(--border-default);
+  background: var(--bg-warm);
+}
+
+.feedback-widget-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.feedback-widget-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--sage);
+  border-radius: 50%;
+  animation: reviewPulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.feedback-widget-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.feedback-widget-skill-tag {
+  display: inline-flex;
+  padding: 2px 10px;
+  background: var(--sage-pale);
+  color: var(--sage);
+  border-radius: var(--r-pill);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.feedback-widget-close {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  color: var(--ink-ghost);
+  background: none;
+  border: none;
+  transition: all var(--t-fast);
+  flex-shrink: 0;
+}
+.feedback-widget-close:hover {
+  background: var(--bg-sunken);
+  color: var(--ink);
+}
+
+.feedback-widget-body {
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.feedback-widget-text {
+  font-size: 0.9rem;
+  color: var(--ink);
+  line-height: 1.75;
+  min-height: 1.4em;
+}
+
+.feedback-widget-why {
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  line-height: 1.6;
+  font-style: italic;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--ink-rule);
+  display: none;
+}
+.feedback-widget-why.visible { display: block; }
 
 
 /* ============================================================
