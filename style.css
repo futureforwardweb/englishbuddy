@@ -1625,32 +1625,52 @@ ul, ol { list-style: none; }
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 300;
+  z-index: 500;
 }
 
+/* Pulse the selected text orange while API loads */
+.selection-loading-highlight {
+  background: rgba(201, 106, 46, 0.18);
+  border-bottom: 2px solid var(--accent);
+  border-radius: 2px;
+  animation: loadingPulse 0.9s ease-in-out infinite;
+  display: inline;
+}
+@keyframes loadingPulse {
+  0%,100% { background: rgba(201, 106, 46, 0.15); }
+  50%      { background: rgba(201, 106, 46, 0.35); }
+}
+
+/* Suggestion card — small, above selection, REWRITE ONLY */
 .suggestion-card {
-  position: fixed;       /* fixed so it stays in viewport regardless of scroll */
+  position: fixed;
   background: var(--bg-card);
-  border: var(--border-card);
-  border-left: 3px solid var(--sage);
+  border: 1.5px solid var(--ink-rule);
+  border-top: 3px solid var(--sage);
   border-radius: var(--r-lg);
-  padding: var(--space-4);
-  width: 360px;
-  max-width: calc(100vw - 32px);
-  max-height: 70vh;      /* never taller than 70% of the screen */
-  overflow-y: auto;      /* scroll internally if content is long */
   box-shadow: var(--shadow-lg);
   pointer-events: all;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 0;
   animation: cardPop var(--t-spring) both;
-  z-index: 301;
+  z-index: 501;
+  overflow: hidden;
+  /* width set inline by JS */
 }
 
 @keyframes cardPop {
-  from { opacity: 0; transform: scale(0.88) translateY(4px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
+  from { opacity: 0; transform: translateY(8px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.suggestion-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 6px;
+  background: var(--bg-warm);
+  border-bottom: 1px solid var(--ink-rule);
 }
 
 .suggestion-card-skill {
@@ -1659,53 +1679,62 @@ ul, ol { list-style: none; }
   background: var(--sage-pale);
   color: var(--sage);
   border-radius: var(--r-pill);
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  width: fit-content;
 }
 
-.suggestion-card-original {
-  font-size: 0.82rem;
+.suggestion-card-x {
+  background: none;
+  border: none;
   color: var(--ink-ghost);
-  text-decoration: line-through;
-  line-height: 1.5;
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: var(--r-sm);
+  line-height: 1;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+.suggestion-card-x:hover { color: var(--ink); background: var(--bg-sunken); }
+
+.suggestion-card-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ink-ghost);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 8px 12px 2px;
 }
 
 .suggestion-card-new {
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 0.875rem;
   color: var(--ink);
-  line-height: 1.55;
-  min-height: 1.2em; /* reserve space while streaming */
-}
-
-.suggestion-card-why {
-  font-size: 0.77rem;
-  color: var(--ink-muted);
-  line-height: 1.5;
+  line-height: 1.65;
+  padding: 4px 12px 10px;
+  min-height: 1.4em;
+  font-family: var(--font-display);
   font-style: italic;
-  border-top: 1px solid var(--ink-rule);
-  padding-top: var(--space-2);
 }
 
 .suggestion-card-actions {
   display: flex;
-  gap: var(--space-2);
-  padding-top: var(--space-1);
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--ink-rule);
+  background: var(--bg-warm);
 }
 
-/* Streaming cursor — appended to element while text is streaming */
+/* Streaming cursor */
 .streaming::after {
   content: '|';
   display: inline-block;
   color: var(--accent);
-  animation: cursorBlink 0.65s ease-in-out infinite;
+  animation: cursorBlink 0.6s ease-in-out infinite;
   margin-left: 1px;
   font-weight: 300;
+  font-style: normal;
 }
-
 @keyframes cursorBlink {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0; }
@@ -1713,25 +1742,28 @@ ul, ol { list-style: none; }
 
 /* ============================================================
    BOTTOM FEEDBACK WIDGET
+   Assessment only — lower z-index than card, never overlaps it
    ============================================================ */
 .feedback-widget {
   position: fixed;
-  bottom: 72px;             /* sits just above the bottom bar */
+  bottom: 64px;
   left: 50%;
-  transform: translateX(-50%) translateY(24px);
-  width: min(680px, calc(100vw - 32px));
+  transform: translateX(-50%) translateY(20px);
+  width: min(620px, calc(100vw - 32px));
   background: var(--bg-card);
   border: var(--border-card);
   border-top: 3px solid var(--sage);
   border-radius: var(--r-xl) var(--r-xl) var(--r-lg) var(--r-lg);
-  box-shadow: var(--shadow-xl);
-  z-index: 200;
+  box-shadow: 0 -4px 32px rgba(44,36,22,0.12), var(--shadow-lg);
+  z-index: 200;          /* below card (501) — never overlaps */
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--t-base), transform var(--t-spring);
   overflow: hidden;
+  max-height: 200px;
+  display: flex;
+  flex-direction: column;
 }
-
 .feedback-widget.visible {
   opacity: 1;
   pointer-events: all;
@@ -1742,49 +1774,44 @@ ul, ol { list-style: none; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3) var(--space-5);
+  padding: 8px 16px;
   border-bottom: var(--border-default);
   background: var(--bg-warm);
+  flex-shrink: 0;
 }
-
 .feedback-widget-title-row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
 }
-
 .feedback-widget-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   background: var(--sage);
   border-radius: 50%;
   animation: reviewPulse 2s ease-in-out infinite;
   flex-shrink: 0;
 }
-
 .feedback-widget-title {
-  font-size: 0.8125rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--ink-soft);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
-
 .feedback-widget-skill-tag {
-  display: inline-flex;
-  padding: 2px 10px;
+  padding: 1px 8px;
   background: var(--sage-pale);
   color: var(--sage);
   border-radius: var(--r-pill);
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-
 .feedback-widget-close {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1792,36 +1819,29 @@ ul, ol { list-style: none; }
   color: var(--ink-ghost);
   background: none;
   border: none;
+  cursor: pointer;
   transition: all var(--t-fast);
-  flex-shrink: 0;
 }
-.feedback-widget-close:hover {
-  background: var(--bg-sunken);
-  color: var(--ink);
-}
+.feedback-widget-close:hover { background: var(--bg-sunken); color: var(--ink); }
 
 .feedback-widget-body {
-  padding: var(--space-4) var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  max-height: 180px;
+  padding: 10px 16px 12px;
   overflow-y: auto;
+  flex: 1;
 }
-
 .feedback-widget-text {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: var(--ink);
   line-height: 1.75;
-  min-height: 1.4em;
+  min-height: 1.2em;
 }
-
 .feedback-widget-why {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: var(--ink-muted);
-  line-height: 1.6;
+  line-height: 1.55;
   font-style: italic;
-  padding-top: var(--space-2);
+  padding-top: 8px;
+  margin-top: 8px;
   border-top: 1px solid var(--ink-rule);
   display: none;
 }
