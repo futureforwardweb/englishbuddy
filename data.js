@@ -944,7 +944,8 @@ RULES:
 - Prioritise concepts and angles that have NOT appeared in the past 5 years (underrepresented areas)
 - The question should be applicable to the student's specific studied text (title and author provided)
 - Write ONE question only, with no preamble, no explanation, and no numbering
-- The question should be 1-2 sentences maximum
+- The question should be 1-3 sentences. NEVER cut off mid-sentence. Always complete the full question before stopping.
+- Do not truncate your response. Write the complete question even if it is long.
 
 UNDERREPRESENTED CONCEPTS TO CONSIDER (based on past paper analysis):
 - Reader's social position or gender explicitly shaping interpretation
@@ -961,6 +962,8 @@ RULES:
 - The question must align with the WACE English ATAR Year 12 syllabus
 - It must match the section: COMPOSING, RESPONDING, or COMPREHENDING as specified
 - Write ONE question only, with no preamble or numbering
+- NEVER cut off mid-sentence. Always write the complete question before stopping.
+- Do not truncate your response under any circumstances.
 - For COMPOSING: provide a clear creative or persuasive task with a specific angle
 - For RESPONDING: focus on language analysis, genre conventions, context, perspective or comparison
 - For COMPREHENDING: generate a short written stimulus text (200-300 words) followed by 2-3 questions`,
@@ -1029,8 +1032,8 @@ RULES:
    ============================================================ */
 
 const APP_CONFIG = {
-  gemini_model: "gemini-2.5-flash",
-  gemini_api_endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+  gemini_model: "gemini-2.0-flash-lite",
+  gemini_api_endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
   free_writing_review_interval_ms: 180000,
   autosave_interval_ms: 30000,
   timer_warning_threshold_seconds: 300,
