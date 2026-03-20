@@ -1032,8 +1032,8 @@ RULES:
    ============================================================ */
 
 const APP_CONFIG = {
-  gemini_model: "gemini-2.0-flash-lite",
-  gemini_api_endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
+  gemini_model: "gemini-3.1-flash-lite",
+  gemini_api_endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
   free_writing_review_interval_ms: 180000,
   autosave_interval_ms: 30000,
   timer_warning_threshold_seconds: 300,
