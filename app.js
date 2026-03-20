@@ -146,22 +146,41 @@ function loadSavedQuotes() {
 /* ============================================================
    2. GEMINI API — TWO-CALL ARCHITECTURE
    ============================================================ */
-async function callGemini(prompt, systemInstruction = null, maxTokens = 2048) {
+async function callGemini(prompt, systemInstruction = null, maxTokens = 2048, retries = 1) {
   const endpoint = `${APP_CONFIG.gemini_api_endpoint}?key=${STATE.apiKey}`;
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 }
   };
   if (systemInstruction) body.system_instruction = { parts: [{ text: systemInstruction }] };
+
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `HTTP ${res.status}`);
+    const msg = err?.error?.message || `HTTP ${res.status}`;
+
+    // Rate limit — parse retry-after seconds and wait if under 30s
+    if (res.status === 429 && retries > 0) {
+      const retryMatch = msg.match(/retry in ([\d.]+)s/i);
+      const waitMs     = retryMatch ? Math.min(parseFloat(retryMatch[1]) * 1000, 30000) : 5000;
+      showToast(`Rate limit hit — retrying in ${Math.round(waitMs / 1000)}s…`, 'info');
+      await new Promise(r => setTimeout(r, waitMs));
+      return callGemini(prompt, systemInstruction, maxTokens, retries - 1);
+    }
+
+    // Quota exhausted — friendly message
+    if (res.status === 429) {
+      throw new Error('Daily quota reached. gemini-2.0-flash allows 1,500 requests/day on the free tier. Try again tomorrow or upgrade your Google AI Studio plan.');
+    }
+
+    throw new Error(msg);
   }
+
   const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Empty response from Gemini.');
@@ -223,7 +242,7 @@ Be specific, reference the actual words. No preamble. No bullet points. Plain pr
 }
 
 async function validateApiKey(key) {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
   const body = {
     contents: [{ role: 'user', parts: [{ text: 'Reply with only the word: ready' }] }],
     generationConfig: { maxOutputTokens: 10 }
@@ -714,7 +733,7 @@ async function generateQuestionQuietly() {
 
   // For scaffolded mode, generate question first then blueprint separately
   try {
-    const result = await callGemini(prompt, null, 400);
+    const result = await callGemini(prompt, null, 700);  // 700 tokens — enough for longest WACE question
     STATE.currentQuestion = result.trim();
     const textEl = $('question-text');
     if (textEl) textEl.textContent = STATE.currentQuestion;
@@ -770,7 +789,7 @@ CONCLUSION TIP: [One sentence on how to end the response for maximum impact]
 WATCH OUT FOR: [One sentence naming the single most common mistake students make on this type of question]`;
 
   try {
-    const result = await callGemini(prompt, null, 900);
+    const result = await callGemini(prompt, null, 1400);  // 1400 — full blueprint with 3 paragraphs
     STATE.scaffoldData = parseScaffoldBlueprint(result);
   } catch(e) {
     // Fallback minimal scaffold data so rendering doesn't break
@@ -1141,7 +1160,7 @@ async function generateStimulusContent() {
   const prompt = `${GEMINI_PROMPTS.question_generation_english}\nSECTION: COMPREHENDING\nPAST QUESTIONS:\n${pastResponding}\nKEY CONCEPTS: ${concepts}\nGenerate a WACE-style comprehending stimulus.\nFormat:\nTITLE: [title]\n---\n[stimulus text 200-250 words]\n---\nQ1: [question]\nQ2: [question]\nQ3: [question]`;
 
   try {
-    const response = await callGemini(prompt, null, 800);
+    const response = await callGemini(prompt, null, 1100);
     const parsed = parseStimulusResponse(response);
     if (textEl) textEl.innerHTML = parsed.stimulus.replace(/\n/g, '<br>');
     if (qList) qList.innerHTML = parsed.questions.map(q => `<li>${escapeHtml(q)}</li>`).join('');
@@ -1709,7 +1728,7 @@ ${essay}
 
 Provide exactly 3 paragraph-level improvement suggestions now.`;
 
-  const result = await callGemini(prompt, null, 800);
+  const result = await callGemini(prompt, null, 1000);
   parseAndDisplayReviewSuggestions(result);
 }
 
@@ -2136,7 +2155,7 @@ ANNOTATION 2: [top-band technique 2]
 ANNOTATION 3: [top-band technique 3]`;
 
   try {
-    const result = await callGemini(prompt, null, 800);
+    const result = await callGemini(prompt, null, 1000);
     const paraMatch = result.match(/PARAGRAPH:\s*([\s\S]*?)(?=ANNOTATION 1:|$)/i);
     const ann1 = result.match(/ANNOTATION 1:\s*([\s\S]*?)(?=ANNOTATION 2:|$)/i);
     const ann2 = result.match(/ANNOTATION 2:\s*([\s\S]*?)(?=ANNOTATION 3:|$)/i);
@@ -3147,73 +3166,102 @@ function showTourStep(key) {
 }
 
 function positionTourCard(step, card, spotlight) {
-  const PAD = 14;
+  const PAD = 12;
+  const vw  = window.innerWidth;
+  const vh  = window.innerHeight;
 
-  // Spotlight target
+  // Card width — never wider than viewport
+  const CARD_W = Math.min(360, vw - PAD * 2);
+  card.style.width    = `${CARD_W}px`;
+  card.style.maxWidth = `${CARD_W}px`;
+  // Max height: never taller than 80% of viewport, always scrollable if overflows
+  const MAX_CARD_H = Math.floor(vh * 0.80);
+  card.style.maxHeight = `${MAX_CARD_H}px`;
+  card.style.overflowY = 'auto';
+
+  // Spotlight
+  let targetRect = null;
   if (step.target) {
     const targetEl = document.querySelector(step.target);
-    if (targetEl && spotlight) {
-      const rect = targetEl.getBoundingClientRect();
-      spotlight.style.display = 'block';
-      spotlight.style.top     = `${rect.top - PAD}px`;
-      spotlight.style.left    = `${rect.left - PAD}px`;
-      spotlight.style.width   = `${rect.width + PAD * 2}px`;
-      spotlight.style.height  = `${rect.height + PAD * 2}px`;
+    if (targetEl) {
+      targetRect = targetEl.getBoundingClientRect();
+      if (spotlight) {
+        spotlight.style.display = 'block';
+        spotlight.style.top     = `${Math.max(0, targetRect.top  - PAD)}px`;
+        spotlight.style.left    = `${Math.max(0, targetRect.left - PAD)}px`;
+        spotlight.style.width   = `${targetRect.width  + PAD * 2}px`;
+        spotlight.style.height  = `${targetRect.height + PAD * 2}px`;
+      }
     }
   } else {
     if (spotlight) spotlight.style.display = 'none';
   }
 
-  // Card position — try to sit near the spotlight without covering it
+  // Reset position — hide while measuring so no flash
   card.style.transition = 'none';
   card.style.transform  = 'none';
   card.style.top = card.style.left = card.style.right = card.style.bottom = 'auto';
+  card.style.visibility = 'hidden';
+  card.style.opacity    = '0';
 
-  const CARD_W = 360;
-  const vw = window.innerWidth, vh = window.innerHeight;
-
-  if (!step.target || !step.arrow) {
-    // Centre fallback
-    card.style.top    = '50%';
-    card.style.left   = '50%';
-    card.style.transform = 'translate(-50%, -50%)';
-  } else {
-    const targetEl = document.querySelector(step.target);
-    const rect     = targetEl ? targetEl.getBoundingClientRect() : { top:vh/2, left:vw/2, width:0, height:0, bottom:vh/2, right:vw/2 };
-    let top, left;
-
-    if (step.arrow === 'bottom') {
-      // Card sits above the target
-      top  = Math.max(PAD, rect.top - 220 - PAD);
-      left = Math.max(PAD, Math.min(rect.left + rect.width/2 - CARD_W/2, vw - CARD_W - PAD));
-    } else if (step.arrow === 'top') {
-      // Card sits below the target
-      top  = Math.min(rect.bottom + PAD, vh - 220 - PAD);
-      left = Math.max(PAD, Math.min(rect.left + rect.width/2 - CARD_W/2, vw - CARD_W - PAD));
-    } else if (step.arrow === 'right') {
-      // Card sits to the left
-      left = Math.max(PAD, rect.left - CARD_W - PAD);
-      top  = Math.max(PAD, Math.min(rect.top + rect.height/2 - 100, vh - 240 - PAD));
-    } else {
-      // Card sits to the right
-      left = Math.min(rect.right + PAD, vw - CARD_W - PAD);
-      top  = Math.max(PAD, Math.min(rect.top + rect.height/2 - 100, vh - 240 - PAD));
-    }
-
-    card.style.top  = `${top}px`;
-    card.style.left = `${left}px`;
-  }
-
-  card.style.width = `${CARD_W}px`;
-
-  // Animate in
-  card.style.opacity   = '0';
-  card.style.marginTop = '10px';
+  // Two-frame defer: first frame lets the browser lay out the card,
+  // second frame reads the real height and applies position
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      card.style.transition = 'opacity 0.24s ease, margin-top 0.24s ease';
-      card.style.opacity    = '1';
-      card.style.marginTop  = '0px';
+      // Measure true rendered height (capped at MAX_CARD_H)
+      const CARD_H = Math.min(card.offsetHeight || 220, MAX_CARD_H);
+      let top, left;
+
+      if (!targetRect || !step.arrow) {
+        // Centre on screen
+        top  = Math.round((vh - CARD_H) / 2);
+        left = Math.round((vw - CARD_W) / 2);
+      } else {
+        const r = targetRect;
+
+        // Preferred position based on arrow direction
+        if (step.arrow === 'bottom') {
+          top = r.top - CARD_H - PAD;
+          // Flip below if it would go off the top
+          if (top < PAD) top = r.bottom + PAD;
+        } else if (step.arrow === 'top') {
+          top = r.bottom + PAD;
+          // Flip above if it would go off the bottom
+          if (top + CARD_H > vh - PAD) top = r.top - CARD_H - PAD;
+        } else if (step.arrow === 'right') {
+          left = r.left - CARD_W - PAD;
+          if (left < PAD) left = r.right + PAD;
+          top  = r.top + r.height / 2 - CARD_H / 2;
+        } else { // left
+          left = r.right + PAD;
+          if (left + CARD_W > vw - PAD) left = r.left - CARD_W - PAD;
+          top  = r.top + r.height / 2 - CARD_H / 2;
+        }
+
+        // Horizontal centering for top/bottom arrows
+        if (step.arrow === 'bottom' || step.arrow === 'top') {
+          left = r.left + r.width / 2 - CARD_W / 2;
+        }
+      }
+
+      // Hard clamp — card must be fully on screen
+      // Horizontal: keep within viewport
+      left = Math.max(PAD, Math.min(Math.round(left || PAD), vw - CARD_W - PAD));
+      // Vertical: keep within viewport — BOTTOM edge especially
+      top  = Math.max(PAD, Math.min(Math.round(top  || PAD), vh - CARD_H - PAD));
+
+      card.style.left       = `${left}px`;
+      card.style.top        = `${top}px`;
+      card.style.visibility = 'visible';
+
+      // Animate in
+      card.style.opacity    = '0';
+      card.style.marginTop  = '8px';
+      requestAnimationFrame(() => {
+        card.style.transition = 'opacity 0.22s ease, margin-top 0.22s ease';
+        card.style.opacity    = '1';
+        card.style.marginTop  = '0px';
+      });
     });
   });
 }
