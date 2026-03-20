@@ -242,7 +242,7 @@ Be specific, reference the actual words. No preamble. No bullet points. Plain pr
 }
 
 async function validateApiKey(key) {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${key}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
   const body = {
     contents: [{ role: 'user', parts: [{ text: 'Reply with only the word: ready' }] }],
     generationConfig: { maxOutputTokens: 10 }
